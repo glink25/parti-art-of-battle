@@ -1,0 +1,13 @@
+{
+  "partiVersion": "0.1.0",
+  "protocolVersion": 1,
+  "id": "art-of-battle",
+  "name": "共生战线 · 双人自走棋",
+  "version": "0.2.0",
+  "description": "两人同盘，八队逐鹿。低多边形合作自走棋。",
+  "packageMode": "filesystem",
+  "entry": { "ui": "index.html", "worker": "room.worker.js" },
+  "room": { "minPlayers": 2, "maxPlayers": 2, "allowSpectators": false },
+  "sync": { "mode": "snapshot" },
+  "permissions": { "network": false, "storage": "session" }
+}

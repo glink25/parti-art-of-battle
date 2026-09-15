@@ -1,0 +1,33 @@
+{
+  "name": "parti-art-of-battle",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && node tools/check-boundaries.mjs && vite build && node tools/check-package.mjs",
+    "dev:room": "vite build --watch --mode room-dev",
+    "build:room": "vite build --mode room-build",
+    "check": "tsc --noEmit && node tools/check-boundaries.mjs && tsx tools/check-content.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "simulate": "tsx tools/simulate.ts",
+    "bench": "tsx tools/bench.ts",
+    "preview": "vite preview --host 0.0.0.0",
+    "pack:room": "pnpm build && node tools/package.mjs",
+    "format:check": "prettier --check src tools tests vite.config.ts",
+    "format": "prettier --write src tools tests vite.config.ts"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/three": "^0.180.0",
+    "esbuild": "^0.25.0",
+    "fflate": "^0.8.3",
+    "prettier": "^3.9.6",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.2",
+    "vite": "^7.1.0"
+  }
+}
