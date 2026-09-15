@@ -1774,6 +1774,89 @@ button > * {
   }
 }
 
+/* Selling uses the bottom command dock so it cannot overlap the shared handoff cells. */
+.sell-dragging .bottom-hud > * {
+  visibility: hidden;
+  pointer-events: none;
+}
+.sell-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #020b10b8;
+  backdrop-filter: blur(4px);
+}
+.sell-confirm[hidden] {
+  display: none;
+}
+.sell-confirm-card {
+  width: min(340px, calc(100vw - 36px));
+  padding: 24px;
+  border: 1px solid #ff9b72aa;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #12313bf7, #07151cfb);
+  box-shadow: 0 18px 60px #000c;
+  text-align: center;
+  color: #eafcff;
+}
+.sell-confirm-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: #ff9b72;
+}
+.sell-confirm-icon svg {
+  width: 34px;
+  height: 34px;
+}
+.sell-confirm-card > small {
+  display: block;
+  color: #8dbbc3;
+  letter-spacing: 2px;
+}
+.sell-confirm-card h2 {
+  margin: 8px 0 3px;
+  font-size: 24px;
+}
+.sell-confirm-card p {
+  min-height: 20px;
+  margin: 0 0 8px;
+  color: #ffd47b;
+  letter-spacing: 2px;
+}
+.sell-confirm-card > strong {
+  display: block;
+  margin-bottom: 20px;
+  color: #ffdca0;
+}
+.sell-confirm-card > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.sell-confirm-card button {
+  min-height: 48px;
+  border: 1px solid #5ba9b788;
+  border-radius: 4px;
+  background: #143845;
+  color: #dffaff;
+}
+#sell-confirm-submit {
+  border-color: #ff9b72bb;
+  background: linear-gradient(#7a3d2b, #4b271f);
+  color: #fff1dc;
+}
+
+@media (max-height: 549px) {
+  .sell-confirm-card {
+    padding: 16px 20px;
+  }
+}
+
 /* Reference-led battlefield HUD rebuild. The rules layer and scene picking remain unchanged. */
 :root {
   --cyan: #42d9ff;
@@ -2899,5 +2982,19 @@ button > * {
   .item-hud,
   .shop-open .item-hud {
     left: 130px;
+  }
+}
+
+/* Keep the final sell target override after every responsive battlefield theme. */
+#sell-zone {
+  top: auto;
+  bottom: max(6px, env(safe-area-inset-bottom));
+  width: min(360px, calc(100% - 24px));
+  height: 64px;
+  z-index: 12;
+}
+@media (max-height: 549px) {
+  #sell-zone {
+    height: 58px;
   }
 }

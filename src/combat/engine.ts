@@ -23,7 +23,12 @@ function synergyValue(counts: Record<string, number>, tag: Tag): number {
   });
   return value;
 }
-function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): CombatEntity {
+function entity(
+  unit: BattleUnit,
+  side: 0 | 1,
+  counts: Record<string, number>,
+  enemyCounts: Record<string, number> = {},
+): CombatEntity {
   const def = UNIT_BY_ID[unit.defId];
   const scale = RULES.starScale[unit.star - 1];
   const modifiers = {
@@ -35,10 +40,33 @@ function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): 
     haste: 0,
     skillBonus: 0,
     deathHeal: 0,
+    cooldown: 0,
+    dodge: 0,
+    reflect: 0,
+    skillResist: 0,
+    armorPen: 0,
+    energyGain: 100,
+    regen: 0,
+    critical: 0,
+    groundBonus: 0,
+    siegeBonus: 0,
+    summonEnergy: 0,
+    linger: 0,
+    extreme: 0,
   };
-  for (const tag of def.tags) {
-    const synergy = SYNERGIES.find((s) => s.id === tag)!;
-    modifiers[synergy.effect] += synergyValue(counts, tag);
+  for (const synergy of SYNERGIES) {
+    const own = synergyValue(counts, synergy.id),
+      enemy = synergyValue(enemyCounts, synergy.id),
+      applies =
+        synergy.scope === 'allAllies' ||
+        (synergy.scope === 'selfTag' && def.tags.includes(synergy.id));
+    if (applies && synergy.effect in modifiers)
+      modifiers[synergy.effect as keyof typeof modifiers] += own;
+    if (synergy.scope === 'allEnemies' && synergy.effect === 'enemyArmor') modifiers.armor -= enemy;
+    if (synergy.scope === 'allEnemies' && synergy.effect === 'enemySkillResist')
+      modifiers.skillResist -= enemy;
+    if (synergy.scope === 'allEnemies' && synergy.effect === 'enemyEnergyGain')
+      modifiers.energyGain -= enemy;
   }
   let hp = Math.floor((def.hp * scale) / 100),
     attack = Math.floor((def.attack * scale) / 100),
@@ -46,6 +74,9 @@ function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): 
     haste = modifiers.haste,
     life = 0,
     skill = modifiers.skillBonus;
+  let cooldownReduction = modifiers.cooldown,
+    noSkill = false,
+    emergencyImmunity = 0;
   for (const id of unit.items) {
     const i = ITEM_BY_ID[id];
     hp += i.hp;
@@ -54,6 +85,10 @@ function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): 
     haste += i.haste;
     life += i.lifesteal;
     skill += i.skillBonus;
+    modifiers.skillResist += i.skillResist ?? 0;
+    cooldownReduction += i.cooldown ?? 0;
+    noSkill ||= !!i.noSkill;
+    emergencyImmunity = Math.max(emergencyImmunity, i.emergencyImmunity ?? 0);
   }
   hp = Math.floor((hp * (100 + modifiers.hpPercent)) / 100);
   attack = Math.floor((attack * (100 + modifiers.attackPercent)) / 100);
@@ -65,6 +100,7 @@ function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): 
     side,
     star: unit.star,
     summoned: false,
+    items: [...unit.items],
     x: unit.x,
     y: unit.y,
     hp,
@@ -74,7 +110,7 @@ function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): 
     range: def.range,
     layer: def.layer,
     targets: def.targets,
-    energy: modifiers.energy,
+    energy: modifiers.energy + (def.tags.includes('panda') ? synergyValue(counts, 'panda') : 0),
     attackTicks: Math.max(
       RULES.minAttackTicks,
       Math.floor((def.attackTicks * (100 - Math.min(RULES.maxHaste, haste))) / 100),
@@ -91,6 +127,35 @@ function entity(unit: BattleUnit, side: 0 | 1, counts: Record<string, number>): 
     buffPower: 0,
     lifesteal: life,
     skillBonus: skill,
+    cooldownReduction,
+    dodge: modifiers.dodge,
+    reflect: modifiers.reflect,
+    skillResist: modifiers.skillResist,
+    armorPen: modifiers.armorPen,
+    energyGain: Math.max(25, modifiers.energyGain),
+    regen: modifiers.regen,
+    criticalChance: modifiers.critical,
+    criticalPower: modifiers.critical ? 175 : 150,
+    silencedUntil: 0,
+    tauntedBy: null,
+    tauntedUntil: 0,
+    armorDebuff: 0,
+    itemsDisabledUntil: 0,
+    skillTakenBonus: 0,
+    rampTargetId: null,
+    rampPower: 0,
+    extremeTriggered: false,
+    trueAttack: def.tags.includes('walker') && (counts.walker ?? 0) === 1,
+    groundBonus: def.tags.includes('raptor') ? synergyValue(counts, 'raptor') : 0,
+    siegeBonus: modifiers.siegeBonus,
+    summonEnergy: modifiers.summonEnergy,
+    lingerTicks: modifiers.linger,
+    noSkill,
+    emergencyImmunity,
+    immunityUsed: false,
+    immunityUntil: 0,
+    deathHeal: modifiers.deathHeal,
+    extremePower: modifiers.extreme,
     deathAt: null,
     deathTriggered: false,
     deathBurstAt: null,
@@ -105,10 +170,12 @@ export function createBattle(descriptor: BattleDescriptor): BattleState {
   )
     throw new Error('战斗版本不一致');
   if (descriptor.sides.flat().length > RULES.entityCap) throw new Error('战斗实体超过上限');
+  const sideCounts = descriptor.sides.map(synergyCounts);
   const entities = descriptor.sides
     .flatMap((side, index) => {
-      const counts = synergyCounts(side);
-      return side.map((u) => entity(u, index as 0 | 1, counts));
+      return side.map((u) =>
+        entity(u, index as 0 | 1, sideCounts[index], sideCounts[index ? 0 : 1]),
+      );
     })
     .sort((a, b) => compareId(a.id, b.id));
   if (new Set(entities.map((e) => e.id)).size !== entities.length)
@@ -126,7 +193,7 @@ export function createBattle(descriptor: BattleDescriptor): BattleState {
     eventHash: 2166136261,
   };
   for (const u of entities)
-    if (UNIT_BY_ID[u.defId].assassin) {
+    if (UNIT_BY_ID[u.defId].assassin && u.criticalChance) {
       const enemies = entities.filter((e) => e.side !== u.side);
       const target = enemies.sort((a, b) =>
         u.side === 0 ? a.y - b.y || compareId(a.id, b.id) : b.y - a.y || compareId(a.id, b.id),
@@ -222,16 +289,50 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
     events.push(e);
     s.eventHash = hashText(JSON.stringify(e), s.eventHash);
   };
+  const itemTotal = (
+    unit: CombatEntity,
+    field: 'attack' | 'armor' | 'lifesteal' | 'skillBonus' | 'cooldown' | 'skillResist',
+  ) => unit.items.reduce((sum, id) => sum + (ITEM_BY_ID[id][field] ?? 0), 0);
   const applyHit = (hit: Hit) => {
     const { source, target, physical } = hit;
+    s.rng = nextRandom(s.rng);
+    if (source.id !== target.id && target.dodge && s.rng % 100 < target.dodge) {
+      emit({ kind: 'statusApply', source: target.id, target: target.id, status: 'buff' });
+      return;
+    }
+    let power = hit.power;
+    if (target.layer === 'ground' && source.groundBonus)
+      power = Math.floor((power * (100 + source.groundBonus)) / 100);
+    const heavy = UNIT_BY_ID[target.defId].tags.some((tag) =>
+      ['armor', 'airforce', 'puppet', 'marine', 'insectoid', 'immortal'].includes(tag),
+    );
+    if (heavy && source.siegeBonus) power = Math.floor((power * (100 + source.siegeBonus)) / 100);
     let damage = Math.max(
       1,
       physical
-        ? Math.floor(
-            (hit.power * RULES.damageArmorBase) /
-              (RULES.damageArmorBase + Math.max(0, target.armor) * RULES.armorCoefficient),
-          )
-        : hit.power,
+        ? source.trueAttack
+          ? power
+          : Math.floor(
+              (power * RULES.damageArmorBase) /
+                (RULES.damageArmorBase +
+                  Math.max(
+                    0,
+                    target.armor -
+                      (target.itemsDisabledUntil > s.tick ? itemTotal(target, 'armor') : 0) -
+                      target.armorDebuff -
+                      source.armorPen,
+                  ) *
+                    RULES.armorCoefficient),
+            )
+        : Math.floor(
+            (power *
+              (100 -
+                target.skillResist +
+                (target.itemsDisabledUntil > s.tick ? itemTotal(target, 'skillResist') : 0) -
+                (target.immunityUntil > s.tick ? target.emergencyImmunity : 0) +
+                target.skillTakenBonus)) /
+              100,
+          ),
     );
     const absorbed = Math.min(target.shield, damage);
     target.shield -= absorbed;
@@ -242,16 +343,60 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
       emit({ kind: 'shieldBreak', source: source.id, target: target.id });
     target.hp -= damage;
     if (target.deathAt !== null && s.tick < target.deathAt) target.hp = Math.max(1, target.hp);
-    target.energy = Math.min(100, target.energy + RULES.hitEnergy);
+    target.energy = Math.min(
+      100,
+      target.energy + Math.floor((RULES.hitEnergy * target.energyGain) / 100),
+    );
     emit({ kind: 'damage', source: source.id, target: target.id, value: damage });
-    if (physical && source.lifesteal && source.hp > 0) {
-      const heal = Math.min(
-        source.maxHp - source.hp,
-        Math.floor((damage * source.lifesteal) / 100),
-      );
+    const activeLifesteal =
+      source.lifesteal - (source.itemsDisabledUntil > s.tick ? itemTotal(source, 'lifesteal') : 0);
+    if (physical && activeLifesteal && source.hp > 0) {
+      const heal = Math.min(source.maxHp - source.hp, Math.floor((damage * activeLifesteal) / 100));
       source.hp += heal;
       if (heal) emit({ kind: 'heal', source: source.id, target: source.id, value: heal });
     }
+    if (source.id !== target.id && target.reflect && source.hp > 0 && damage > 0) {
+      const reflected = Math.min(source.hp, target.reflect);
+      source.hp -= reflected;
+      emit({ kind: 'damage', source: target.id, target: source.id, value: reflected });
+    }
+    if (target.itemsDisabledUntil <= s.tick)
+      for (const id of target.items) target.skillBonus += ITEM_BY_ID[id].damageTakenSkill ?? 0;
+    const ramp =
+      source.itemsDisabledUntil > s.tick
+        ? 0
+        : source.items.reduce((sum, id) => sum + (ITEM_BY_ID[id].onHitRamp ?? 0), 0);
+    if (physical && ramp) {
+      source.rampPower =
+        source.rampTargetId === target.id ? Math.min(40, source.rampPower + ramp) : ramp;
+      source.rampTargetId = target.id;
+    }
+    if (
+      !target.immunityUsed &&
+      target.emergencyImmunity &&
+      target.hp > 0 &&
+      target.hp * 100 <= target.maxHp * 30
+    ) {
+      target.immunityUsed = true;
+      target.immunityUntil = s.tick + 40;
+      target.stunUntil = Math.min(target.stunUntil, s.tick);
+      emit({
+        kind: 'statusApply',
+        source: target.id,
+        target: target.id,
+        status: 'buff',
+        until: target.immunityUntil,
+      });
+    }
+    if (source.summoned && damage > 0)
+      for (const owner of s.entities.filter(
+        (entity) =>
+          !entity.summoned &&
+          entity.ownerId === source.ownerId &&
+          UNIT_BY_ID[entity.defId].tags.includes('summoner'),
+      )) {
+        owner.energy = Math.min(100, owner.energy + owner.summonEnergy);
+      }
   };
   const eventForAction = (kind: BattleEvent['kind'], source: CombatEntity) => {
     const action = source.action!;
@@ -271,37 +416,64 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
   };
   const startAction = (source: CombatEntity, kind: 'attack' | 'skill', target: CombatEntity) => {
     const def = UNIT_BY_ID[source.defId],
+      targetRule = def.skill.effects.find((effect) => effect.trigger === 'cast')?.target,
       baseTiming = kind === 'attack' ? def.attackTiming : def.skill.timing,
       scale = kind === 'attack' ? source.attackTicks / def.attackTicks : 1,
       windup = Math.max(1, Math.floor(baseTiming.windupTicks * scale)),
       travel = Math.max(0, Math.floor(baseTiming.travelTicks * scale)),
       recovery = Math.max(0, Math.floor(baseTiming.recoveryTicks * scale));
     let actualTarget = target;
-    if (kind === 'skill' && def.skill.kind === 'heal') {
+    if (kind === 'skill' && targetRule === 'lowestHealthAlly') {
       actualTarget =
         s.entities
           .filter((e) => e.side === source.side && alive(e))
           .sort((a, b) => a.hp * b.maxHp - b.hp * a.maxHp || compareId(a.id, b.id))[0] ?? source;
-    } else if (kind === 'skill' && ['shield', 'buff', 'summon'].includes(def.skill.kind)) {
+    } else if (kind === 'skill' && (targetRule === 'self' || targetRule === 'allAllies')) {
       actualTarget = source;
+    } else if (kind === 'skill' && targetRule === 'highestAttackEnemy') {
+      actualTarget =
+        s.entities
+          .filter((e) => e.side !== source.side && alive(e))
+          .sort((a, b) => b.attack - a.attack || compareId(a.id, b.id))[0] ?? target;
     }
     let power = source.attack,
       critical = false;
     if (kind === 'attack') {
       s.rng = nextRandom(s.rng);
-      critical = !!def.assassin && s.rng % 100 < 20;
+      critical = source.criticalChance > 0 && s.rng % 100 < source.criticalChance;
+      const activeAttack =
+        source.attack - (source.itemsDisabledUntil > s.tick ? itemTotal(source, 'attack') : 0);
       power = Math.floor(
-        ((source.attack + (source.buffUntil > s.tick ? source.buffPower : 0)) *
-          (critical ? 150 : 100)) /
+        ((activeAttack + (source.buffUntil > s.tick ? source.buffPower : 0) + source.rampPower) *
+          (critical ? source.criticalPower : 100)) /
           100,
       );
-      source.energy = Math.min(100, source.energy + RULES.attackEnergy);
+      source.energy = Math.min(
+        100,
+        source.energy + Math.floor((RULES.attackEnergy * source.energyGain) / 100),
+      );
       source.nextAttack = s.tick + source.attackTicks;
+      const silenceAt =
+        source.itemsDisabledUntil > s.tick
+          ? 0
+          : source.items.reduce(
+              (value, id) => Math.max(value, ITEM_BY_ID[id].silenceEnergy ?? 0),
+              0,
+            );
+      if (silenceAt && actualTarget.energy >= silenceAt)
+        actualTarget.silencedUntil = Math.max(actualTarget.silencedUntil, s.tick + 30);
     } else {
       source.energy -= 100;
-      source.nextSkill = s.tick + def.skill.cooldown;
+      const activeCooldown =
+          source.cooldownReduction -
+          (source.itemsDisabledUntil > s.tick ? itemTotal(source, 'cooldown') : 0),
+        activeSkillBonus =
+          source.skillBonus -
+          (source.itemsDisabledUntil > s.tick ? itemTotal(source, 'skillBonus') : 0);
+      source.nextSkill =
+        s.tick + Math.max(10, Math.floor((def.skill.cooldown * (100 - activeCooldown)) / 100));
       power = Math.floor(
-        (((def.skill.power * RULES.starScale[source.star - 1]) / 100) * (100 + source.skillBonus)) /
+        (((def.skill.power * RULES.starScale[source.star - 1]) / 100) * (100 + activeSkillBonus)) /
           100,
       );
     }
@@ -325,7 +497,8 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
   };
   const impactAction = (source: CombatEntity, hits: Hit[]) => {
     const action = source.action!,
-      def = UNIT_BY_ID[source.defId];
+      def = UNIT_BY_ID[source.defId],
+      castEffect = def.skill.effects.find((effect) => effect.trigger === 'cast');
     eventForAction('actionImpact', source);
     if (action.critical)
       emit({ kind: 'critical', source: source.id, target: action.targetId, actionId: action.id });
@@ -344,13 +517,17 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
         if (heal) emit({ kind: 'heal', source: source.id, target: target.id, value: heal });
       }
     } else if (skill.kind === 'shield') {
-      if (alive(source)) {
-        source.shield += action.power;
-        emit({ kind: 'shield', source: source.id, target: source.id, value: action.power });
-        emit({ kind: 'statusApply', source: source.id, target: source.id, status: 'shield' });
+      const protectedUnits =
+        castEffect?.target === 'allAllies'
+          ? friends
+          : [s.entities.find((e) => e.id === action.targetId && alive(e)) ?? source];
+      for (const friend of protectedUnits) {
+        friend.shield += action.power;
+        emit({ kind: 'shield', source: source.id, target: friend.id, value: action.power });
+        emit({ kind: 'statusApply', source: source.id, target: friend.id, status: 'shield' });
       }
     } else if (skill.kind === 'buff') {
-      if (source.defId === 'child') {
+      if (castEffect?.kind === 'energy') {
         for (const friend of friends) {
           friend.energy = Math.min(100, friend.energy + 35);
           emit({ kind: 'statusApply', source: source.id, target: friend.id, status: 'energy' });
@@ -375,7 +552,7 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
           const child = entity(
             {
               id: `${s.descriptor.id}:s${++s.serial}`,
-              defId: 'wolf',
+              defId: def.summonId ?? 'wolf',
               ownerId: source.ownerId,
               star: source.star,
               x: cell[0],
@@ -394,6 +571,27 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
       } else if (s.entities.length >= RULES.entityCap && !s.diagnostics.includes('entity-cap')) {
         s.diagnostics.push('entity-cap');
       }
+    } else if (skill.kind === 'transform') {
+      const nearest = s.entities
+        .filter((entity) => entity.side !== source.side && alive(entity))
+        .sort((a, b) => distance(source, a) - distance(source, b) || compareId(a.id, b.id))[0];
+      source.layer =
+        source.defId === 'transform_tower'
+          ? nearest && distance(source, nearest) > 2
+            ? 'air'
+            : 'ground'
+          : source.layer === 'air'
+            ? 'ground'
+            : 'air';
+      source.buffPower = Math.floor(source.attack / 2);
+      source.buffUntil = s.tick + skill.duration;
+      emit({
+        kind: 'statusApply',
+        source: source.id,
+        target: source.id,
+        status: 'buff',
+        until: source.buffUntil,
+      });
     } else {
       if (skill.kind === 'dash' && alive(source)) {
         const cell = neighbors(action.targetX, action.targetY).find(
@@ -412,9 +610,23 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
           source.targets.includes(e.layer) &&
           distance(e, { x: action.targetX, y: action.targetY }) <= skill.radius,
       )) {
-        hits.push({ source, target, power: action.power, physical: false });
+        if (skill.kind === 'execute') {
+          const threshold = skill.power;
+          hits.push({
+            source,
+            target,
+            power:
+              target.hp * 100 <= target.maxHp * threshold
+                ? target.hp + target.shield
+                : Math.max(1, action.power),
+            physical: false,
+          });
+        } else hits.push({ source, target, power: action.power, physical: false });
         if (skill.kind === 'stun') {
-          target.stunUntil = Math.max(target.stunUntil, s.tick + skill.duration);
+          const controlDuration = target.extremeTriggered
+            ? Math.max(1, Math.floor(skill.duration / 2))
+            : skill.duration;
+          target.stunUntil = Math.max(target.stunUntil, s.tick + controlDuration);
           emit({
             kind: 'statusApply',
             source: source.id,
@@ -432,6 +644,42 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
             target: target.id,
             status: 'poison',
             until: target.poisonUntil,
+          });
+        }
+        if (skill.kind === 'armorBreak') {
+          target.armorDebuff = Math.max(target.armorDebuff, 6 + source.star * 2);
+          emit({
+            kind: 'statusApply',
+            source: source.id,
+            target: target.id,
+            status: 'armorBreak',
+            until: s.tick + skill.duration,
+          });
+        }
+        if (skill.kind === 'charm') {
+          const victim = s.entities
+            .filter((e) => e.side === target.side && e.id !== target.id && alive(e))
+            .sort((a, b) => compareId(a.id, b.id))[0];
+          if (victim) target.targetId = victim.id;
+          target.tauntedBy = victim?.id ?? source.id;
+          target.tauntedUntil = s.tick + skill.duration;
+          emit({
+            kind: 'statusApply',
+            source: source.id,
+            target: target.id,
+            status: 'taunt',
+            until: s.tick + skill.duration,
+          });
+        }
+        if (skill.kind === 'silence') {
+          target.silencedUntil = Math.max(target.silencedUntil, s.tick + skill.duration);
+          target.itemsDisabledUntil = target.silencedUntil;
+          emit({
+            kind: 'statusApply',
+            source: source.id,
+            target: target.id,
+            status: 'itemsDisabled',
+            until: target.silencedUntil,
           });
         }
       }
@@ -455,6 +703,34 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
         emit({ kind: 'statusRemove', source: u.id, target: u.id, status: 'poison' });
       if (u.buffUntil === s.tick)
         emit({ kind: 'statusRemove', source: u.id, target: u.id, status: 'buff' });
+      if (u.tauntedUntil === s.tick) {
+        u.tauntedBy = null;
+        emit({ kind: 'statusRemove', source: u.id, target: u.id, status: 'taunt' });
+      }
+      if (u.silencedUntil === s.tick)
+        emit({ kind: 'statusRemove', source: u.id, target: u.id, status: 'silence' });
+      if (u.regen && s.tick % RULES.tickRate === 0 && alive(u)) {
+        const heal = Math.min(u.maxHp - u.hp, Math.floor((u.maxHp * u.regen) / 100));
+        u.hp += heal;
+        if (heal) emit({ kind: 'heal', source: u.id, target: u.id, value: heal });
+      }
+      if (
+        !u.extremeTriggered &&
+        UNIT_BY_ID[u.defId].tags.includes('fighter') &&
+        u.hp > 0 &&
+        u.hp * 100 <= u.maxHp * 30
+      ) {
+        u.extremeTriggered = true;
+        const value = u.extremePower;
+        u.attack = Math.floor((u.attack * (100 + value)) / 100);
+        u.attackTicks = Math.max(
+          RULES.minAttackTicks,
+          Math.floor((u.attackTicks * (100 - value)) / 100),
+        );
+        u.energyGain += value;
+        u.stunUntil = Math.min(u.stunUntil, s.tick);
+        emit({ kind: 'statusApply', source: u.id, target: u.id, status: 'extreme' });
+      }
       if (u.poisonUntil > s.tick && s.tick % 20 === 0 && alive(u))
         hits.push({ source: u, target: u, power: u.poisonPower, physical: false });
       if (u.deathBurstAt === s.tick) {
@@ -494,9 +770,9 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
         changed = true;
         triggers++;
         const def = UNIT_BY_ID[u.defId];
-        if (def.linger && !u.summoned) {
+        if ((def.linger || u.lingerTicks) && !u.summoned) {
           u.hp = 1;
-          u.deathAt = s.tick + def.linger;
+          u.deathAt = s.tick + (def.linger ?? u.lingerTicks);
           emit({
             kind: 'statusApply',
             source: u.id,
@@ -516,12 +792,13 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
             impactTick: u.deathBurstAt,
           });
         }
-        const support = synergyValue(synergyCounts(s.descriptor.sides[u.side]), 'support');
+        const support = u.deathHeal;
         if (support && def.tags.includes('support') && !u.summoned)
           for (const friend of s.entities.filter((e) => alive(e) && e.side === u.side)) {
             const heal = Math.min(friend.maxHp - friend.hp, support);
             friend.hp += heal;
             if (heal) emit({ kind: 'heal', source: u.id, target: friend.id, value: heal });
+            friend.energy = Math.min(100, friend.energy + Math.floor(support / 4));
           }
         if (u.hp <= 0) emit({ kind: 'death', source: u.id, x: u.x, y: u.y });
       }
@@ -538,8 +815,10 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
     const living = s.entities.filter(alive).sort((a, b) => compareId(a.id, b.id));
     for (const u of living) {
       if (u.action || u.stunUntil > s.tick) continue;
-      const enemies = living.filter(
-        (e) => e.side !== u.side && u.targets.includes(e.layer) && alive(e),
+      const enemies = living.filter((e) =>
+        u.tauntedUntil > s.tick
+          ? e.id === u.tauntedBy
+          : e.side !== u.side && u.targets.includes(e.layer) && alive(e),
       );
       let target = enemies.find((e) => e.id === u.targetId);
       if (!target)
@@ -551,11 +830,26 @@ export function stepBattle(s: BattleState, steps = 1): BattleEvent[] {
         )[0];
       if (!target) continue;
       u.targetId = target.id;
-      if (!u.summoned && u.energy >= 100 && s.tick >= u.nextSkill) {
+      if (
+        !u.summoned &&
+        !(u.itemsDisabledUntil <= s.tick && u.items.some((id) => ITEM_BY_ID[id].noSkill)) &&
+        UNIT_BY_ID[u.defId].skill.effects.some((effect) => effect.trigger === 'cast') &&
+        u.silencedUntil <= s.tick &&
+        u.energy >= 100 &&
+        s.tick >= u.nextSkill
+      ) {
         startAction(u, 'skill', target);
-      } else if (distance(u, target) <= u.range && s.tick >= u.nextAttack) {
+      } else if (
+        !UNIT_BY_ID[u.defId].noAttack &&
+        distance(u, target) <= u.range &&
+        s.tick >= u.nextAttack
+      ) {
         startAction(u, 'attack', target);
-      } else if (distance(u, target) > u.range && s.tick >= u.nextMove) {
+      } else if (
+        !UNIT_BY_ID[u.defId].immobile &&
+        distance(u, target) > u.range &&
+        s.tick >= u.nextMove
+      ) {
         const def = UNIT_BY_ID[u.defId];
         let cell = findStep(s, u, target);
         if (!cell) {

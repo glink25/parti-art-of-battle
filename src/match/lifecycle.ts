@@ -173,6 +173,12 @@ export function settleRound(s: GameState): void {
       draft.lastSummary.push(
         `${team.name} ${outcome === 'win' ? '获胜' : outcome === 'draw' ? '平局' : '落败'}${result.damage[side] ? ` · -${result.damage[side]} 生命` : ''}`,
       );
+      if (outcome === 'win')
+        for (const unit of battle.sides[side])
+          if (unit.defId === 'alchemy_tower' && result.survivors.includes(unit.id)) {
+            draft.players[unit.ownerId].gold += unit.star;
+            draft.lastSummary.push(`${draft.players[unit.ownerId].name} 的炼金塔 +${unit.star} 金`);
+          }
       for (const id of team.players) {
         const p = draft.players[id];
         grantRoundIncome(p, draft.round, outcome, battle.neutral);

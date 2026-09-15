@@ -1,13 +1,33 @@
-import type { Command, GameState, PlayerState, UnitInstance } from '../domain/types';
+import type { Command, GameState, PlayerState, Tag, UnitInstance } from '../domain/types';
 import { deriveSeed } from '../domain/random';
 import { RULES, UNIT_BY_ID } from '../content';
 import { applyCommand, firstBench, playerUnits, teamUnits } from '../rules/game';
 export const TEMPLATES = [
-  { name: '步兵交叉火力', race: 'infantry', jobs: ['guard', 'sniper'] },
-  { name: '野兽共生', race: 'beast', jobs: ['guard', 'support'] },
-  { name: '装甲炮阵', race: 'armor', jobs: ['guard', 'blast'] },
-  { name: '灵能共振', race: 'psionic', jobs: ['blast', 'support'] },
-];
+  ['步兵交叉火力', 'infantry', 'guard', 'sniper'],
+  ['骑兵爆破', 'cavalry', 'blast', 'sniper'],
+  ['装甲炮阵', 'armor', 'guard', 'siege'],
+  ['空军突袭', 'airforce', 'blast', 'assassin'],
+  ['傀儡军团', 'puppet', 'vanguard', 'summoner'],
+  ['灵能共振', 'psionic', 'blast', 'support'],
+  ['陆行真伤', 'walker', 'guard', 'sniper'],
+  ['海神攻城', 'marine', 'guard', 'siege'],
+  ['野兽共生', 'beast', 'guard', 'vanguard'],
+  ['猛禽制地', 'raptor', 'sniper', 'ability'],
+  ['异虫速升', 'insectoid', 'blast', 'ability'],
+  ['不朽控制', 'immortal', 'ability', 'vanguard'],
+  ['熊猫开大', 'panda', 'ability', 'assassin'],
+  ['护卫壁垒', 'guard', 'support', 'sniper'],
+  ['爆破洪流', 'blast', 'armor', 'ability'],
+  ['支援续航', 'support', 'beast', 'guard'],
+  ['狙击穿甲', 'sniper', 'infantry', 'cavalry'],
+  ['攻城重炮', 'siege', 'armor', 'marine'],
+  ['异能压制', 'ability', 'psionic', 'blast'],
+  ['刺杀切后', 'assassin', 'airforce', 'beast'],
+  ['召唤浪潮', 'summoner', 'puppet', 'beast'],
+  ['先锋再生', 'vanguard', 'beast', 'puppet'],
+  ['建筑工事', 'building', 'support', 'sniper'],
+  ['格斗极限', 'fighter', 'assassin', 'ability'],
+].map(([name, race, ...jobs]) => ({ name, race: race as Tag, jobs: jobs as Tag[] }));
 function strength(u: UnitInstance): number {
   return UNIT_BY_ID[u.defId].cost + u.star * 5;
 }
@@ -84,8 +104,7 @@ export function planBotActions(
   );
   const claim = publicUnits.find(
     (u) =>
-      owned.some((v) => v.defId === u.defId) ||
-      UNIT_BY_ID[u.defId].tags.includes(template.race as never),
+      owned.some((v) => v.defId === u.defId) || UNIT_BY_ID[u.defId].tags.includes(template.race),
   );
   if (claim && slot >= 0) return move(claim, { zone: 'bench', slot }, '领取队友交付的阵容棋子');
   const mate = s.players[s.teams[p.teamId].players.find((id) => id !== p.id)!];
@@ -114,8 +133,8 @@ export function planBotActions(
       if (p.gold < def.cost) return [];
       const copies = owned.filter((u) => u.defId === id && u.position.zone !== 'public');
       const score =
-        (def.tags.includes(template.race as never) ? 9 : 0) +
-        (def.tags.includes(template.jobs[p.seat] as never) ? 4 : 0) +
+        (def.tags.includes(template.race) ? 9 : 0) +
+        (def.tags.includes(template.jobs[p.seat]) ? 4 : 0) +
         copies.length * 5 +
         (board.length < p.level ? 8 : 0) +
         def.cost +
@@ -137,7 +156,7 @@ export function planBotActions(
     );
   if (slot < 0) {
     const junk = waiting
-      .filter((u) => !UNIT_BY_ID[u.defId].tags.includes(template.race as never))
+      .filter((u) => !UNIT_BY_ID[u.defId].tags.includes(template.race))
       .sort((a, b) => strength(a) - strength(b))[0];
     if (junk)
       return wrap('sell', { unitId: junk.id, unitVersion: junk.version }, '清理偏离阵容的备战棋子');

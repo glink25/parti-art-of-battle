@@ -1,8 +1,83 @@
 export type Tag =
-  'infantry' | 'beast' | 'armor' | 'psionic' | 'guard' | 'sniper' | 'blast' | 'support';
+  | 'infantry'
+  | 'cavalry'
+  | 'armor'
+  | 'airforce'
+  | 'puppet'
+  | 'psionic'
+  | 'walker'
+  | 'marine'
+  | 'beast'
+  | 'raptor'
+  | 'insectoid'
+  | 'immortal'
+  | 'panda'
+  | 'guard'
+  | 'blast'
+  | 'support'
+  | 'sniper'
+  | 'siege'
+  | 'ability'
+  | 'assassin'
+  | 'summoner'
+  | 'vanguard'
+  | 'building'
+  | 'fighter';
 export type Layer = 'ground' | 'air';
 export type SkillKind =
-  'damage' | 'heal' | 'shield' | 'stun' | 'poison' | 'summon' | 'dash' | 'buff';
+  | 'damage'
+  | 'heal'
+  | 'shield'
+  | 'stun'
+  | 'poison'
+  | 'summon'
+  | 'dash'
+  | 'buff'
+  | 'charm'
+  | 'execute'
+  | 'silence'
+  | 'armorBreak'
+  | 'transform';
+export type AbilityTrigger =
+  | 'battleStart'
+  | 'cast'
+  | 'attackHit'
+  | 'damaged'
+  | 'damageDealt'
+  | 'lowHealth'
+  | 'death'
+  | 'victory';
+export type AbilityTarget =
+  'self' | 'current' | 'lowestHealthAlly' | 'highestAttackEnemy' | 'allAllies' | 'areaEnemies';
+export type AbilityEffectKind =
+  | 'physicalDamage'
+  | 'skillDamage'
+  | 'trueDamage'
+  | 'heal'
+  | 'shield'
+  | 'energy'
+  | 'summon'
+  | 'dash'
+  | 'stun'
+  | 'poison'
+  | 'silence'
+  | 'taunt'
+  | 'armor'
+  | 'attack'
+  | 'haste'
+  | 'disableItems'
+  | 'execute'
+  | 'transform'
+  | 'gold';
+export interface AbilityEffect {
+  trigger: AbilityTrigger;
+  target: AbilityTarget;
+  kind: AbilityEffectKind;
+  value: number;
+  duration?: number;
+  radius?: number;
+  summonId?: string;
+}
 export interface ActionTiming {
   windupTicks: number;
   travelTicks: number;
@@ -15,12 +90,15 @@ export interface CombatVisualDefinition {
   secondary: number;
 }
 export interface Skill {
+  name: string;
+  description: string;
   kind: SkillKind;
   power: number;
   radius: number;
   duration: number;
   cooldown: number;
   timing: ActionTiming;
+  effects: AbilityEffect[];
 }
 export interface UnitDefinition {
   id: string;
@@ -41,7 +119,10 @@ export interface UnitDefinition {
   assassin?: boolean;
   deathBurst?: number;
   linger?: number;
-  shape: 'soldier' | 'beast' | 'mech' | 'mystic';
+  immobile?: boolean;
+  noAttack?: boolean;
+  summonId?: string;
+  shape: 'soldier' | 'beast' | 'mech' | 'mystic' | 'building' | 'insect' | 'panda' | 'fighter';
   color: number;
   combatVisual: CombatVisualDefinition;
 }
@@ -55,6 +136,14 @@ export interface ItemDefinition {
   haste: number;
   lifesteal: number;
   skillBonus: number;
+  skillResist?: number;
+  cooldown?: number;
+  noSkill?: boolean;
+  damageTakenSkill?: number;
+  onHitRamp?: number;
+  silenceEnergy?: number;
+  emergencyImmunity?: number;
+  effects: AbilityEffect[];
 }
 export interface SynergyDefinition {
   id: Tag;
@@ -68,7 +157,25 @@ export interface SynergyDefinition {
     | 'shield'
     | 'haste'
     | 'skillBonus'
-    | 'deathHeal';
+    | 'deathHeal'
+    | 'enemyArmor'
+    | 'dodge'
+    | 'reflect'
+    | 'skillResist'
+    | 'groundBonus'
+    | 'merge'
+    | 'linger'
+    | 'fullEnergy'
+    | 'enemySkillResist'
+    | 'armorPen'
+    | 'siegeBonus'
+    | 'enemyEnergyGain'
+    | 'critical'
+    | 'summonEnergy'
+    | 'regen'
+    | 'cooldown'
+    | 'extreme';
+  scope: 'selfTag' | 'allAllies' | 'allEnemies' | 'rule';
   values: number[];
   description: string;
 }
@@ -170,6 +277,7 @@ export interface CombatEntity {
   side: 0 | 1;
   star: number;
   summoned: boolean;
+  items: string[];
   x: number;
   y: number;
   hp: number;
@@ -193,6 +301,35 @@ export interface CombatEntity {
   buffPower: number;
   lifesteal: number;
   skillBonus: number;
+  cooldownReduction: number;
+  dodge: number;
+  reflect: number;
+  skillResist: number;
+  armorPen: number;
+  energyGain: number;
+  regen: number;
+  criticalChance: number;
+  criticalPower: number;
+  silencedUntil: number;
+  tauntedBy: string | null;
+  tauntedUntil: number;
+  armorDebuff: number;
+  itemsDisabledUntil: number;
+  skillTakenBonus: number;
+  rampTargetId: string | null;
+  rampPower: number;
+  extremeTriggered: boolean;
+  trueAttack: boolean;
+  groundBonus: number;
+  siegeBonus: number;
+  summonEnergy: number;
+  lingerTicks: number;
+  noSkill: boolean;
+  emergencyImmunity: number;
+  immunityUsed: boolean;
+  immunityUntil: number;
+  deathHeal: number;
+  extremePower: number;
   deathAt: number | null;
   deathTriggered: boolean;
   deathBurstAt: number | null;
@@ -244,7 +381,18 @@ export interface BattleEvent {
   actionId?: number;
   action?: CombatActionKind;
   skillKind?: SkillKind;
-  status?: 'stun' | 'poison' | 'buff' | 'energy' | 'shield' | 'linger';
+  status?:
+    | 'stun'
+    | 'poison'
+    | 'buff'
+    | 'energy'
+    | 'shield'
+    | 'linger'
+    | 'silence'
+    | 'taunt'
+    | 'armorBreak'
+    | 'itemsDisabled'
+    | 'extreme';
   until?: number;
   releaseTick?: number;
   impactTick?: number;

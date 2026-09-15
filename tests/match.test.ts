@@ -45,3 +45,43 @@ test('odd team mirror has no second economic or damage settlement for source', (
   assert.equal(new Set(appearances).size, 7);
   assert.equal(appearances.length, 7);
 });
+
+test('a surviving alchemy tower grants its owner star-scaled victory gold', () => {
+  const s = createGame(77);
+  addPlayer(s, 'a', 'A', 'team-0', 0);
+  addPlayer(s, 'b', 'B', 'team-0', 1);
+  addPlayer(s, 'c', 'C', 'team-1', 0);
+  addPlayer(s, 'd', 'D', 'team-1', 1);
+  s.phase = 'prep';
+  s.round = 4;
+  s.units.tower = {
+    id: 'tower',
+    defId: 'alchemy_tower',
+    ownerId: 'a',
+    teamId: 'team-0',
+    star: 2,
+    copies: 3,
+    version: 0,
+    position: { zone: 'board', x: 0, y: 5 },
+    items: [],
+  };
+  s.pool.alchemy_tower -= 3;
+  freezeBattles(s);
+  const battle = s.battles[0],
+    side = battle.teams[0] === 'team-0' ? 0 : 1;
+  const tower = battle.sides[side].find((unit) => unit.defId === 'alchemy_tower')!;
+  commitBattleResults(s, [
+    {
+      id: battle.id,
+      winner: side as 0 | 1,
+      ticks: 10,
+      damage: side === 0 ? [0, 1] : [1, 0],
+      survivors: [tower.id],
+      hash: 'alchemy',
+      diagnostics: [],
+    },
+  ]);
+  settleRound(s);
+  assert.equal(s.players.a.gold - s.players.b.gold, 2);
+  assert.ok(s.lastSummary.some((line) => line.includes('炼金塔 +2 金')));
+});

@@ -74,7 +74,7 @@ export function addPlayer(
     ready: false,
     demand: null,
     botMemory: {
-      template: (Number(teamId.split('-')[1]) || 0) % 4,
+      template: deriveSeed(state.seed, `template:${id}`) % 24,
       commands: 0,
       refreshes: 0,
       serial: 0,
@@ -140,23 +140,40 @@ export function firstBench(s: GameState, id: string): number {
   return -1;
 }
 export const sellValue = saleValue;
+function insectLevel(s: GameState, teamId: string): number {
+  return new Set(
+    teamUnits(s, teamId)
+      .filter(
+        (unit) =>
+          unit.position.zone === 'board' && UNIT_BY_ID[unit.defId].tags.includes('insectoid'),
+      )
+      .map((unit) => unit.defId),
+  ).size;
+}
 export function mergeUnits(s: GameState, p: PlayerState): void {
   let changed = true;
   while (changed) {
     changed = false;
-    const units = playerUnits(s, p.id)
-      .filter((u) => u.position.zone !== 'public')
-      .sort(
-        (a, b) =>
-          (a.position.zone === 'board' ? 0 : 1) - (b.position.zone === 'board' ? 0 : 1) ||
-          compareId(a.id, b.id),
-      );
+    const units = playerUnits(s, p.id).sort(
+      (a, b) =>
+        (a.position.zone === 'public' ? 0 : a.position.zone === 'board' ? 1 : 2) -
+          (b.position.zone === 'public' ? 0 : b.position.zone === 'board' ? 1 : 2) ||
+        (a.position.zone === 'public' && b.position.zone === 'public'
+          ? a.position.slot - b.position.slot
+          : 0) ||
+        compareId(a.id, b.id),
+    );
     for (const keeper of units) {
       if (keeper.star >= 3) continue;
+      const insects = insectLevel(s, p.teamId),
+        fastMerge =
+          UNIT_BY_ID[keeper.defId].tags.includes('insectoid') &&
+          ((keeper.star === 1 && insects >= 2) || (keeper.star === 2 && insects >= 4)),
+        required = fastMerge ? 2 : 3;
       const group = units
         .filter((u) => u.defId === keeper.defId && u.star === keeper.star)
-        .slice(0, 3);
-      if (group.length < 3) continue;
+        .slice(0, required);
+      if (group.length < required) continue;
       const allItems = group.flatMap((u) => u.items);
       keeper.copies = group.reduce((n, u) => n + u.copies, 0);
       keeper.star++;
@@ -282,6 +299,7 @@ function mutate(s: GameState, p: PlayerState, c: Command): void {
       target.position = old;
       u.version++;
       target.version++;
+      for (const id of s.teams[p.teamId].players) mergeUnits(s, s.players[id]);
       return;
     }
     const pos = c.position!;
@@ -291,7 +309,7 @@ function mutate(s: GameState, p: PlayerState, c: Command): void {
         ? { zone: 'board', x: pos.x, y: pos.y }
         : { zone: pos.zone, slot: pos.slot };
     u.version++;
-    mergeUnits(s, s.players[u.ownerId]);
+    for (const id of s.teams[p.teamId].players) mergeUnits(s, s.players[id]);
     return;
   }
   reject('未知指令');
@@ -371,7 +389,8 @@ export function assertInvariants(s: GameState): void {
   for (const u of Object.values(s.units)) {
     if (
       !validPosition(u.position) ||
-      u.copies !== 3 ** (u.star - 1) ||
+      u.copies < 2 ** (u.star - 1) ||
+      u.copies > 3 ** (u.star - 1) ||
       u.items.length > 3 ||
       !s.players[u.ownerId] ||
       s.players[u.ownerId].teamId !== u.teamId

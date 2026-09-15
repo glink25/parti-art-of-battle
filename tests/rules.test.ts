@@ -181,6 +181,32 @@ test('full bench can still purchase a completing triple', () => {
   assert.equal(Object.values(s.units).find((u) => u.defId === 'shield')?.star, 2);
   assertInvariants(s);
 });
+test('public units merge with the same owner and keep the public slot', () => {
+  const s = setup();
+  unit(s, 'private-one', 'a', { zone: 'bench', slot: 0 });
+  unit(s, 'private-two', 'a', { zone: 'board', x: 0, y: 5 });
+  unit(s, 'public', 'a', { zone: 'bench', slot: 2 });
+  s.units.public.items = ['blade', 'book'];
+  s.units['private-one'].items = ['shield'];
+  s.units['private-two'].items = ['battery'];
+  assert.equal(
+    cmd(s, 'a', 'move', {
+      unitId: 'public',
+      unitVersion: 0,
+      position: { zone: 'public', slot: 2 },
+    }).ok,
+    true,
+  );
+  assert.deepEqual(Object.keys(s.units), ['public']);
+  assert.equal(s.units.public.star, 2);
+  assert.equal(s.units.public.copies, 3);
+  assert.equal(s.units.public.version, 2);
+  assert.deepEqual(s.units.public.position, { zone: 'public', slot: 2 });
+  assert.deepEqual(s.units.public.items, ['blade', 'book', 'battery']);
+  assert.deepEqual(s.players.a.items, ['shield']);
+  assertInvariants(s);
+});
+
 test('public units do not merge across owners until received', () => {
   const s = setup();
   unit(s, 'one', 'a', { zone: 'bench', slot: 0 });
@@ -195,6 +221,40 @@ test('public units do not merge across owners until received', () => {
   );
   assert.equal(Object.keys(s.units).length, 1);
   assert.equal(Object.values(s.units)[0].star, 2);
+  assertInvariants(s);
+});
+
+test('cascading same-star merges stay deterministic when a public unit participates', () => {
+  const s = setup();
+  unit(s, 'public', 'a', { zone: 'public', slot: 3 });
+  for (let slot = 0; slot < 8; slot++) unit(s, `bench-${slot}`, 'a', { zone: 'bench', slot });
+  mergeUnits(s, s.players.a);
+  assert.deepEqual(Object.keys(s.units), ['public']);
+  assert.equal(s.units.public.star, 3);
+  assert.equal(s.units.public.copies, 9);
+  assert.equal(s.units.public.version, 2);
+  assert.deepEqual(s.units.public.position, { zone: 'public', slot: 3 });
+  assertInvariants(s);
+});
+
+test('fielded insectoid synergy enables owner-local two-copy merges', () => {
+  const s = setup();
+  s.players.a.level = 2;
+  const add = (id: string, defId: string, position: UnitInstance['position']) => {
+    unit(s, id, 'a', position);
+    s.pool.shield++;
+    s.pool[defId]--;
+    s.units[id].defId = defId;
+  };
+  add('eye', 'eye', { zone: 'board', x: 0, y: 5 });
+  add('spider', 'spider', { zone: 'board', x: 1, y: 5 });
+  add('bee-a', 'killerbee', { zone: 'bench', slot: 0 });
+  add('bee-b', 'killerbee', { zone: 'bench', slot: 1 });
+  mergeUnits(s, s.players.a);
+  const bees = Object.values(s.units).filter((value) => value.defId === 'killerbee');
+  assert.equal(bees.length, 1);
+  assert.equal(bees[0].star, 2);
+  assert.equal(bees[0].copies, 2);
   assertInvariants(s);
 });
 

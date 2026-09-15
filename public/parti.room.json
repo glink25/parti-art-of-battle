@@ -3,7 +3,7 @@
   "protocolVersion": 1,
   "id": "art-of-battle",
   "name": "共生战线 · 双人自走棋",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "两人同盘，八队逐鹿。低多边形合作自走棋。",
   "tags": ["turn-based", "co-op"],
   "cover": "cover.jpg",

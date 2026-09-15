@@ -57,7 +57,22 @@ export class GameResources {
     );
     const metal = 0x344247,
       ivory = 0xe8d9ad;
-    if (d.shape === 'mech') {
+    if (d.shape === 'building') {
+      part(new THREE.BoxGeometry(0.65, 0.18, 0.65), metal, 0, 0.25, 0);
+      part(new THREE.CylinderGeometry(0.28, 0.38, 0.72, 6), d.color, 0, 0.67, 0);
+      part(new THREE.OctahedronGeometry(0.2), d.combatVisual.secondary, 0, 1.12, 0);
+    } else if (d.shape === 'insect') {
+      const body = part(new THREE.IcosahedronGeometry(0.32, 0), d.color, 0, 0.52, 0);
+      body.scale.set(1, 0.7, 1.35);
+      for (const sideX of [-1, 1])
+        for (const z of [-0.25, 0, 0.25]) {
+          const leg = part(new THREE.BoxGeometry(0.42, 0.045, 0.045), metal, sideX * 0.31, 0.42, z);
+          leg.rotation.z = sideX * 0.35;
+        }
+      if (d.layer === 'air')
+        for (const x of [-0.34, 0.34])
+          part(new THREE.BoxGeometry(0.45, 0.035, 0.3), ivory, x, 0.7, 0);
+    } else if (d.shape === 'mech') {
       for (const x of [-0.28, 0.28])
         part(new THREE.BoxGeometry(0.18, 0.22, 0.68), metal, x, 0.27, 0);
       part(new THREE.BoxGeometry(0.57, 0.34, 0.5), d.color, 0, 0.47, 0);
@@ -114,6 +129,13 @@ export class GameResources {
         part(new THREE.CylinderGeometry(0.035, 0.045, 0.95, 5), metal, 0.39, 0.62, -0.05);
         part(new THREE.OctahedronGeometry(0.15), 0xcfa6ff, 0.39, 1.17, -0.05);
         part(new THREE.ConeGeometry(0.24, 0.25, 5), d.color, 0, 1.14, 0);
+      } else if (d.shape === 'panda') {
+        part(new THREE.CylinderGeometry(0.31, 0.35, 0.18, 8), 0x252a2a, 0, 1.13, 0);
+        for (const x of [-0.18, 0.18])
+          part(new THREE.SphereGeometry(0.09, 6, 4), 0x252a2a, x, 1.29, 0);
+      } else if (d.shape === 'fighter') {
+        for (const x of [-0.32, 0.32])
+          part(new THREE.BoxGeometry(0.18, 0.12, 0.25), d.color, x, 0.72, -0.18);
       } else if (d.tags.includes('guard')) {
         const shield = part(new THREE.BoxGeometry(0.34, 0.47, 0.09), d.color, -0.29, 0.59, -0.23);
         shield.rotation.z = -0.1;

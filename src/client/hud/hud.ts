@@ -5,7 +5,17 @@ import type { GameResources } from '../resources';
 import type { SafeArea } from '../scene';
 import type { CombatStatRow } from '../combat-stats';
 export type HudAction =
-  Command['type'] | 'start' | 'retry' | 'home' | 'view' | 'cancel' | 'swap-mode' | 'seat' | 'item';
+  | Command['type']
+  | 'start'
+  | 'retry'
+  | 'home'
+  | 'view'
+  | 'cancel'
+  | 'swap-mode'
+  | 'seat'
+  | 'item'
+  | 'confirm-sell'
+  | 'cancel-sell';
 export class GameHud {
   readonly board: HTMLElement;
   private state: GameState | null = null;
@@ -45,6 +55,7 @@ export class GameHud {
   <div id="shop" class="recruit-shop" data-ui><div class="shop-main"><div class="shop-heading"><span>棋子招募</span><small id="shop-hint">与你的队友共同进化</small></div><div id="shop-cards"></div></div><div class="shop-actions"><button id="shop-close" class="round-button" aria-label="收起商店">${icon('close')}</button><button id="refresh" class="shop-action-primary" aria-label="刷新商店">${icon('refresh')}<span>刷新</span><small>${RULES.refreshCost}</small><kbd>D</kbd></button><button id="lock" class="round-button" aria-label="锁定商店">${icon('lock')}<small>锁</small></button></div></div>
   <div class="bottom-hud" data-ui><div class="player-economy"><span id="player-name">机师</span><strong id="gold">${icon('coin')}<b>0</b></strong><small id="interest">利息 +0</small></div><button id="xp" class="xp-button" aria-label="购买经验"><span id="level">Lv.1</span><i><b id="xp-fill"></b></i><small id="xp-label"></small><em>${icon('xp')}<span>${RULES.xpCost}</span></em></button><div class="field-controls"><button id="shop-toggle" class="shop-toggle-button">${icon('shop')}<span>商店</span><kbd>Space</kbd></button><button id="ready" class="ready-button">${icon('check')}<span>准备完成</span></button></div></div>
   <div id="sell-zone" data-ui hidden>${icon('sell')}<span>拖到此处出售</span><strong></strong></div><div id="drop-hint" role="status" hidden></div><div id="drag-item" hidden></div>
+  <div id="sell-confirm" class="sell-confirm" data-ui role="dialog" aria-modal="true" aria-labelledby="sell-confirm-title" hidden><div class="sell-confirm-card"><span class="sell-confirm-icon">${icon('sell')}</span><small>出售棋子</small><h2 id="sell-confirm-title"></h2><p id="sell-confirm-stars"></p><strong id="sell-confirm-value"></strong><div><button id="sell-confirm-cancel">取消</button><button id="sell-confirm-submit">确认出售</button></div></div></div>
   <div id="stage-banner" aria-live="polite" hidden><small></small><strong></strong></div><div id="toast" role="status" aria-live="polite"></div>
   <div id="lobby" class="lobby-overlay" data-ui><div class="lobby-emblem">${icon('shield')}</div><small>双人协作 · 八队竞技</small><h1>共生战线</h1><p id="lobby-message">等待机师加入战场</p><button id="start" class="ready-button">开始远征</button></div>
   <div id="menu" class="game-menu" data-ui hidden><button id="menu-close" class="close-button" aria-label="关闭">${icon('close')}</button><h2>战场指南</h2><p>买棋后拖到己方半场部署。拖到已占格可合法换位，中央金色四格用于交付队友。</p><p>装备可拖给自己的棋子；拖动棋子到出售区域可出售。每人独立经济，共享生命与羁绊。</p><p>手机支持点选再点空格。先点“换位”再点目标棋子，也能完成交换。</p><p class="keys">D 刷新 · F 经验 · Space 商店 · Esc 取消</p><button id="debug-toggle" hidden>开发工具</button><div id="debug" hidden><button id="local-seat">切换本地席位</button><pre id="debug-log"></pre></div></div>`;
@@ -57,6 +68,11 @@ export class GameHud {
     click('start', () => this.action(this.state?.phase === 'error' ? 'retry' : 'start'));
     click('home', () => this.action('home'));
     click('detail-close', () => this.action('cancel'));
+    click('sell-confirm-cancel', () => this.action('cancel-sell'));
+    click('sell-confirm-submit', () => this.action('confirm-sell'));
+    this.el('sell-confirm').onclick = (event) => {
+      if (event.target === this.el('sell-confirm')) this.action('cancel-sell');
+    };
     click('local-seat', () => this.action('seat'));
     click('shop-toggle', () => this.toggleShop());
     click('shop-close', () => this.toggleShop(false));
@@ -136,6 +152,7 @@ export class GameHud {
   setDragging(value: boolean, sellPrice?: number): void {
     this.dragging = value;
     this.root.classList.toggle('dragging', value);
+    this.root.classList.toggle('sell-dragging', value && sellPrice !== undefined);
     this.el('sell-zone').hidden = !value || sellPrice === undefined;
     this.el('sell-zone').querySelector('strong')!.textContent =
       sellPrice === undefined ? '' : `${sellPrice} 金`;
@@ -458,16 +475,7 @@ export class GameHud {
       .join(' · ');
     this.el('detail-stats').textContent =
       `生命 ${Math.floor((d.hp * RULES.starScale[u.star - 1]) / 100)}  /  攻击 ${Math.floor((d.attack * RULES.starScale[u.star - 1]) / 100)}  /  射程 ${d.range}`;
-    this.el('detail-skill').textContent = {
-      damage: '范围轰击',
-      heal: '治疗友军',
-      shield: '防御护盾',
-      stun: '震荡控制',
-      poison: '毒素侵蚀',
-      summon: '召唤伙伴',
-      dash: '突进追击',
-      buff: '战斗增幅',
-    }[d.skill.kind];
+    this.el('detail-skill').textContent = `${d.skill.name}：${d.skill.description}`;
     this.el('detail-items')
       .querySelectorAll<HTMLElement>('.equipped-slot')
       .forEach((slot, i) => {
@@ -487,6 +495,20 @@ export class GameHud {
   }
   salePrice(u: UnitInstance): number {
     return saleValue(u);
+  }
+  showSellConfirm(u: UnitInstance): void {
+    const def = UNIT_BY_ID[u.defId],
+      dialog = this.el('sell-confirm');
+    this.el('sell-confirm-title').textContent = def.name;
+    this.el('sell-confirm-stars').textContent = '★'.repeat(u.star);
+    this.el('sell-confirm-value').textContent = `出售可获得 ${this.salePrice(u)} 金`;
+    dialog.hidden = false;
+    this.root.classList.add('sell-confirming');
+    this.el<HTMLButtonElement>('sell-confirm-submit').focus();
+  }
+  hideSellConfirm(): void {
+    this.el('sell-confirm').hidden = true;
+    this.root.classList.remove('sell-confirming');
   }
   setCombatStats(rows: CombatStatRow[], syncing = false): void {
     const box = this.el('damage-rows');
@@ -529,9 +551,16 @@ export class GameHud {
     this.el('clock').classList.toggle('urgent', active && ms < 5000);
   }
   closeTransient(): void {
-    for (const id of ['detail', 'menu', 'synergy-detail', 'items', 'item-description'])
+    for (const id of [
+      'detail',
+      'menu',
+      'synergy-detail',
+      'items',
+      'item-description',
+      'sell-confirm',
+    ])
       this.el(id).hidden = true;
-    this.root.classList.remove('rankings-open', 'synergies-open');
+    this.root.classList.remove('rankings-open', 'synergies-open', 'sell-confirming');
   }
   dispose(): void {
     clearTimeout(this.toastTimer);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { COMBAT_VISUALS, CONTENT_HASH, RULES, UNITS } from '../src/content';
+import { COMBAT_VISUALS, CONTENT_HASH, RULES, UNIT_BY_ID, UNITS } from '../src/content';
 import {
   createBattle,
   finishBattle,
@@ -94,8 +94,13 @@ test('ground BFS cannot cut occupied diagonal corners', () => {
   assert.notEqual(findStep(s, u, enemy), null);
 });
 test('all configured skills execute and summons obey entity cap', () => {
-  const d = descriptor(20),
-    s = createBattle(d);
+  const d = descriptor(3);
+  for (const side of d.sides) {
+    side[0].defId = 'wolf';
+    side[1].defId = 'medic';
+    side[2].defId = 'kong';
+  }
+  const s = createBattle(d);
   for (const u of s.entities) u.energy = 100;
   const events = stepBattle(s, 900);
   assert.ok(events.some((e) => e.kind === 'spawn'));
@@ -113,11 +118,15 @@ test('air targeting restrictions are respected', () => {
   assert.equal(s.entities[1].hp, s.entities[1].maxHp);
 });
 test('delayed death survives subsequent hits until its deterministic expiry', () => {
-  const d = descriptor(1);
-  d.sides[0][0].defId = 'master';
+  const d = descriptor(2);
+  d.sides[0][0].defId = 'bone_dragon';
+  d.sides[0][1].defId = 'vine';
   const s = createBattle(d),
     u = s.entities[0],
-    enemy = s.entities[1];
+    enemy = s.entities.find((entity) => entity.side === 1)!;
+  const companion = s.entities.find((entity) => entity.side === 0 && entity !== u)!;
+  companion.hp = 0;
+  companion.deathTriggered = true;
   u.hp = 1;
   u.shield = 0;
   u.attack = 0;
@@ -259,18 +268,18 @@ test('replay frames retain active actions and released projectiles after their s
   );
 });
 
-test('dog death burst warns before its delayed deterministic explosion', () => {
+test('burstbug death burst warns before its delayed deterministic explosion', () => {
   const d = descriptor(1);
-  d.sides[0][0].defId = 'dog';
+  d.sides[0][0].defId = 'burstbug';
   const s = createBattle(d),
-    dog = s.entities[0],
+    bug = s.entities[0],
     enemy = s.entities[1];
-  dog.x = 4;
-  dog.y = 5;
+  bug.x = 4;
+  bug.y = 5;
   enemy.x = 4;
   enemy.y = 4;
   enemy.targets = [];
-  dog.hp = 0;
+  bug.hp = 0;
   const warning = stepBattle(s).find((event) => event.kind === 'deathBurst');
   assert.ok(warning?.impactTick && warning.impactTick > warning.tick);
   assert.equal(frame(s).deathBursts[0]?.impactAt, warning!.impactTick);
@@ -280,4 +289,41 @@ test('dog death burst warns before its delayed deterministic explosion', () => {
   const impact = stepBattle(s);
   assert.ok(impact.some((event) => event.kind === 'deathBurstImpact'));
   assert.ok(enemy.hp < hp);
+});
+
+test('behavioral synergies initialize deterministic combat modifiers', () => {
+  const d = descriptor(4);
+  ['bomber', 'repair', 'ark', 'ghost'].forEach((id, index) => (d.sides[0][index].defId = id));
+  ['sage', 'child', 'turtle', 'master'].forEach((id, index) => (d.sides[1][index].defId = id));
+  const s = createBattle(d);
+  assert.ok(s.entities.filter((unit) => unit.side === 0).every((unit) => unit.dodge === 25));
+  assert.ok(
+    s.entities
+      .filter((unit) => unit.side === 1 && UNIT_BY_ID[unit.defId].tags.includes('psionic'))
+      .every((unit) => unit.reflect === 35),
+  );
+});
+
+test('execute, armor break, charm and item disabling emit their configured effects', () => {
+  const d = descriptor(4);
+  ['athena', 'venom', 'spider', 'divine_tower'].forEach(
+    (id, index) => (d.sides[0][index].defId = id),
+  );
+  const s = createBattle(d);
+  for (const unit of s.entities.filter((value) => value.side === 0)) unit.energy = 100;
+  const events = stepBattle(s, 80);
+  assert.ok(events.some((event) => event.status === 'armorBreak'));
+  assert.ok(events.some((event) => event.status === 'taunt'));
+  assert.ok(events.some((event) => event.status === 'itemsDisabled'));
+});
+
+test('a non-attacking building neither walks nor starts attacks', () => {
+  const d = descriptor(1);
+  d.sides[0][0].defId = 'alchemy_tower';
+  const s = createBattle(d),
+    tower = s.entities[0],
+    start = [tower.x, tower.y];
+  stepBattle(s, 100);
+  assert.deepEqual([tower.x, tower.y], start);
+  assert.equal(tower.action, null);
 });

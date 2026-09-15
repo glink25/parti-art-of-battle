@@ -194,6 +194,14 @@ export class GameApp {
       this.input?.swapMode();
       return;
     }
+    if (name === 'confirm-sell') {
+      this.input?.confirmSell();
+      return;
+    }
+    if (name === 'cancel-sell') {
+      this.input?.cancelSell();
+      return;
+    }
     if (!this.state || !this.gateway) return;
     const p = this.state.players[this.gateway.playerId ?? ''];
     if (!p) return;

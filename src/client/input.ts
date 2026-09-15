@@ -3,7 +3,8 @@ import { assessPlacement, samePosition } from '../domain/placement';
 import { PLACEMENT_LIMITS, RULES } from '../content';
 import type { BoardScene, Pick } from './scene';
 import type { GameHud } from './hud/hud';
-export type InputMode = 'idle' | 'selected' | 'dragging' | 'equipment' | 'swapping' | 'pending';
+export type InputMode =
+  'idle' | 'selected' | 'dragging' | 'equipment' | 'swapping' | 'confirming-sell' | 'pending';
 interface InputHost {
   state(): GameState | null;
   actor(): string;
@@ -32,6 +33,7 @@ export class InputController {
   private disposers: (() => void)[] = [];
   private selectedVersion: number | null = null;
   private pendingId: string | null = null;
+  private sellCandidate: { id: string; version: number } | null = null;
   constructor(
     private root: HTMLElement,
     private scene: BoardScene,
@@ -74,6 +76,7 @@ export class InputController {
         this.hud.closeTransient();
         return;
       }
+      if (this.mode === 'confirming-sell') return;
       if (!['KeyD', 'KeyF', 'Space'].includes(k.code)) return;
       k.preventDefault();
       if (k.code === 'Space' && !this.pointer) this.hud.toggleShop();
@@ -92,7 +95,13 @@ export class InputController {
     );
   }
   private down(e: PointerEvent): void {
-    if (e.button !== 0 || this.pointer || this.mode === 'pending') return;
+    if (
+      e.button !== 0 ||
+      this.pointer ||
+      this.mode === 'pending' ||
+      this.mode === 'confirming-sell'
+    )
+      return;
     this.hud.markInteraction(e.clientX, e.clientY);
     const target = e.target as HTMLElement;
     const itemButton = target.closest<HTMLButtonElement>('[data-item]');
@@ -169,7 +178,7 @@ export class InputController {
     this.scene.setPreview(p.unitId!, e.clientX, e.clientY);
     if (this.hud.sellHit(e.clientX, e.clientY)) {
       this.scene.highlight(null, false);
-      this.hud.hint('松手出售', true, e.clientX, e.clientY);
+      this.hud.hint('松手进入出售确认', true, e.clientX, e.clientY);
       return;
     }
     const intent = this.placement(p.unitId!, p.version!, pick);
@@ -196,7 +205,7 @@ export class InputController {
         return;
       }
       if (selling) {
-        this.submit({ type: 'sell', unitId: p.unitId, unitVersion: p.version });
+        this.requestSell(p.unitId!, p.version!);
         return;
       }
       const u = this.host.state()?.units[p.unitId ?? ''];
@@ -336,6 +345,53 @@ export class InputController {
       this.hud.showNotice('点击另一枚棋子交换位置');
     }
   }
+  private requestSell(id: string, version: number): void {
+    const u = this.host.state()?.units[id];
+    if (
+      !u ||
+      u.version !== version ||
+      u.ownerId !== this.host.actor() ||
+      u.position.zone === 'public' ||
+      !this.canOperate()
+    ) {
+      this.mode = this.selectedId ? 'selected' : 'idle';
+      this.hud.showNotice('棋子状态已更新，无法出售');
+      this.host.changed();
+      return;
+    }
+    this.selectedId = id;
+    this.selectedVersion = version;
+    this.sellCandidate = { id, version };
+    this.mode = 'confirming-sell';
+    this.hud.showSellConfirm(u);
+    this.host.changed();
+  }
+  confirmSell(): void {
+    const candidate = this.sellCandidate,
+      u = candidate ? this.host.state()?.units[candidate.id] : undefined;
+    if (
+      !candidate ||
+      !u ||
+      u.version !== candidate.version ||
+      u.ownerId !== this.host.actor() ||
+      u.position.zone === 'public' ||
+      !this.canOperate()
+    ) {
+      this.cancelSell();
+      this.hud.showNotice('棋子状态已更新，无法出售');
+      return;
+    }
+    this.sellCandidate = null;
+    this.hud.hideSellConfirm();
+    this.mode = 'selected';
+    this.submit({ type: 'sell', unitId: u.id, unitVersion: u.version });
+  }
+  cancelSell(): void {
+    this.sellCandidate = null;
+    this.hud.hideSellConfirm();
+    this.mode = this.selectedId ? 'selected' : 'idle';
+    this.host.changed();
+  }
   submit(command: Omit<Command, 'commandId' | 'round'>): void {
     if (this.pendingId) return;
     const id = this.host.send(command);
@@ -350,9 +406,15 @@ export class InputController {
     if (result.commandId !== this.pendingId) return;
     this.pendingId = null;
     this.hud.setBusy(false);
-    this.mode = this.selectedId ? 'selected' : 'idle';
     const u = this.host.state()?.units[this.selectedId ?? ''];
-    if (u) this.selectedVersion = u.version;
+    if (u) {
+      this.selectedVersion = u.version;
+      this.mode = 'selected';
+    } else {
+      this.selectedId = null;
+      this.selectedVersion = null;
+      this.mode = 'idle';
+    }
     this.host.changed();
   }
   reconcile(): void {
@@ -399,6 +461,8 @@ export class InputController {
   }
   cancel(): void {
     this.finishPointer();
+    this.sellCandidate = null;
+    this.hud.hideSellConfirm();
     this.selectedId = null;
     this.selectedVersion = null;
     this.selectedItem = null;
