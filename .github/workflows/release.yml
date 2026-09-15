@@ -1,0 +1,67 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm simulate 20
+      - run: pnpm pack:room
+
+      - name: Create or update release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp dist/parti.room.json parti.room.json
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/parti.room.zip parti.room.json --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/parti.room.zip parti.room.json \
+              --title "$GITHUB_REF_NAME" \
+              --notes "Parti Room Package built from source commit $GITHUB_SHA."
+          fi
+
+      - name: Publish immutable versioned package branch
+        env:
+          PACKAGE_BRANCH: parti-package-${{ github.ref_name }}
+        run: |
+          publish_dir="$(mktemp -d)"
+          cp -R dist/. "$publish_dir/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan parti-package-publish
+          git rm -rf . >/dev/null 2>&1 || true
+          cp -R "$publish_dir/." .
+          git add -A
+          git commit -m "Parti package $GITHUB_REF_NAME from $GITHUB_SHA"
+
+          if git ls-remote --exit-code --heads origin "refs/heads/$PACKAGE_BRANCH" >/dev/null; then
+            git fetch origin "$PACKAGE_BRANCH"
+            if [ "$(git rev-parse 'HEAD^{tree}')" != "$(git rev-parse 'FETCH_HEAD^{tree}')" ]; then
+              echo "Refusing to overwrite existing package branch $PACKAGE_BRANCH" >&2
+              exit 1
+            fi
+            echo "Package branch $PACKAGE_BRANCH already contains this artifact"
+          else
+            git push origin "HEAD:refs/heads/$PACKAGE_BRANCH"
+          fi
