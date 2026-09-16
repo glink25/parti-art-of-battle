@@ -59,11 +59,14 @@ export class GameApp {
         (frame, events, damage) => {
           this.currentFrame = frame;
           this.updateCombatDetails(frame);
-          if (this.state)
+          if (this.state) {
+            const battle = this.state.battles.find((candidate) => candidate.id === frame.battleId);
+            this.scene?.setViewedSide(battle?.teams[0] === this.view ? 0 : 1);
             this.scene?.update(
               battlePresentationUnits(this.state, this.view, frame),
               this.input?.selectedId ?? null,
             );
+          }
           this.scene?.combatFrame(frame);
           this.scene?.events(events);
           this.lastDamage.set(this.view, damage);
@@ -126,6 +129,7 @@ export class GameApp {
     }
     const battle = this.replay?.update(s, this.view);
     if (!battle) {
+      this.scene?.setViewedSide(0);
       this.currentFrame = null;
       this.combatDetails.clear();
       this.scene?.clearCombat();
@@ -133,6 +137,10 @@ export class GameApp {
       const damage = this.lastDamage.get(this.view);
       this.hud.setCombatStats(damage ?? [], false, damage ? '上一场' : '暂无数据');
     } else if (this.currentFrame) {
+      const descriptor = s.battles.find(
+        (candidate) => candidate.id === this.currentFrame?.battleId,
+      );
+      this.scene?.setViewedSide(descriptor?.teams[0] === this.view ? 0 : 1);
       this.scene?.update(
         battlePresentationUnits(s, this.view, this.currentFrame),
         this.input?.selectedId ?? null,

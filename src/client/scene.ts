@@ -5,6 +5,9 @@ import { UNIT_BY_ID } from '../content';
 import { CombatEffects } from './combat-effects';
 import { GameResources } from './resources';
 import { positionToWorld } from './presentation';
+import { animateUnitModel } from './art/core/model';
+import type { UnitModel } from './art/core/types';
+import { SelectiveBloom } from './art/core/bloom';
 export interface SceneUnit {
   id: string;
   defId: string;
@@ -21,6 +24,12 @@ export interface SceneUnit {
   stunUntil?: number;
   poisonUntil?: number;
   buffUntil?: number;
+  silencedUntil?: number;
+  tauntedUntil?: number;
+  itemsDisabledUntil?: number;
+  immunityUntil?: number;
+  armorDebuff?: number;
+  extremeTriggered?: boolean;
   deathAt?: number | null;
   action?: CombatAction | null;
 }
@@ -37,7 +46,7 @@ export interface SafeArea {
 }
 interface View {
   group: THREE.Group;
-  model: THREE.Group;
+  model: UnitModel;
   label: HTMLDivElement;
   target: THREE.Vector3;
   data: SceneUnit;
@@ -48,8 +57,9 @@ interface View {
 }
 export class BoardScene {
   readonly renderer: THREE.WebGLRenderer;
+  private composer: SelectiveBloom;
   private scene = new THREE.Scene();
-  private camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 120);
+  private camera = new THREE.PerspectiveCamera(36, 1, 0.1, 120);
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
   private views = new Map<string, View>();
@@ -79,6 +89,7 @@ export class BoardScene {
   private combatTime = 0;
   private defIds = new Map<string, string>();
   private combatId = '';
+  private viewedSide: 0 | 1 = 0;
   constructor(
     private container: HTMLElement,
     readonly resources: GameResources,
@@ -86,25 +97,26 @@ export class BoardScene {
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
-      powerPreference: 'low-power',
+      powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    this.renderer.setClearColor(0x31463e);
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    this.renderer.setClearColor(0x111827);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.append(this.renderer.domElement);
     this.overlay = document.createElement('div');
     this.overlay.className = 'world-overlay';
     container.append(this.overlay);
-    this.camera.position.set(0, 19, 12);
-    this.camera.lookAt(0, 0, 1);
+    this.camera.position.set(0, 13.2, 15.2);
+    this.camera.lookAt(0, 0, 1.1);
     this.camera.updateMatrixWorld();
-    this.scene.add(new THREE.HemisphereLight(0xe6f5ee, 0x23392b, 2.6));
-    const sun = new THREE.DirectionalLight(0xffe6b2, 3.1);
+    this.scene.add(new THREE.HemisphereLight(0xdff7ff, 0x211d38, 2.15));
+    const sun = new THREE.DirectionalLight(0xffddb0, 2.5);
     sun.position.set(-7, 14, 4);
     this.scene.add(sun);
-    this.box(55, 0.3, 55, 0x354c3b, 0, -0.9, 0);
+    this.box(55, 0.3, 55, 0x151c2d, 0, -0.9, 0);
     this.makeBoard();
     this.effects = new CombatEffects(this.scene, resources);
+    this.composer = new SelectiveBloom(this.renderer, this.scene, this.camera);
     this.origin = this.marker(0xe8d5a1);
     (this.origin.material as THREE.MeshBasicMaterial).wireframe = true;
     this.destination = this.marker(0x8eeed1);
@@ -157,12 +169,12 @@ export class BoardScene {
     return mesh;
   }
   private makeBoard(): void {
-    this.box(10.7, 0.5, 10.7, 0x273b3b, 0, -0.4, 0);
-    this.box(10.4, 0.16, 10.4, 0x799b8f, 0, -0.08, 0);
+    this.box(10.7, 0.5, 10.7, 0x1d263d, 0, -0.4, 0);
+    this.box(10.4, 0.16, 10.4, 0x35415b, 0, -0.08, 0);
     // A single presentation rail contains both private benches and the shared handoff cells.
-    this.box(10.75, 0.28, 2.45, 0x102d38, 0, -0.2, 6.2);
-    this.box(10.55, 0.04, 0.06, 0x42cbe7, 0, 0.02, 5.02);
-    this.box(10.55, 0.04, 0.06, 0x42cbe7, 0, 0.02, 7.38);
+    this.box(10.75, 0.28, 2.45, 0x151c31, 0, -0.2, 6.2);
+    this.box(10.55, 0.04, 0.06, 0x44e5dd, 0, 0.02, 5.02);
+    this.box(10.55, 0.04, 0.06, 0xff786f, 0, 0.02, 7.38);
     this.box(0.06, 0.06, 2.3, 0xd4ae54, -1, 0.03, 6.2);
     this.box(0.06, 0.06, 2.3, 0xd4ae54, 1, 0.03, 6.2);
     const tiles = new THREE.InstancedMesh(
@@ -182,7 +194,7 @@ export class BoardScene {
         place(
           x - 4.5,
           y - 4.5,
-          y < 5 ? ((x + y) % 2 ? 0x899786 : 0xa4af99) : (x + y) % 2 ? 0x809782 : 0x9ead92,
+          y < 5 ? ((x + y) % 2 ? 0x314d5d : 0x3a6170) : (x + y) % 2 ? 0x523e58 : 0x664550,
           { position: { zone: 'board', x, y } },
         );
     for (let seat = 0; seat < 2; seat++)
@@ -232,7 +244,9 @@ export class BoardScene {
   }
   private model(u: SceneUnit): View {
     const group = new THREE.Group(),
-      model = this.resources.unit(u.defId, u.side, u.seat);
+      model = this.resources.unit(u.defId, u.side, u.seat, u.star);
+    // Models now stand at local y=0; board tiles have their top at y=.12.
+    model.position.y = 0.12;
     group.add(model);
     group.userData.pick = { unitId: u.id };
     const ring = new THREE.Mesh(
@@ -285,6 +299,9 @@ export class BoardScene {
         this.views.set(u.id, v);
         this.pulse(u.id);
       }
+      const previousStar = v.data.star;
+      if (previousStar < u.star) this.effects.upgrade(v.target.clone(), u.defId, u.star);
+      this.resources.setStar(v.model, u.star);
       v.data = u;
       v.target.set(u.x, u.layer === 'air' ? 0.4 : 0, u.z);
       v.ring.visible = u.id === selected;
@@ -329,6 +346,11 @@ export class BoardScene {
   lockCamera(lock: boolean): void {
     this.resizeLocked = lock;
     if (!lock) this.resize();
+  }
+  setViewedSide(side: 0 | 1): void {
+    if (this.viewedSide === side) return;
+    this.viewedSide = side;
+    if (!this.resizeLocked) this.resize();
   }
   setPreview(id: string | null, x = 0, y = 0): void {
     if (!id) {
@@ -470,24 +492,22 @@ export class BoardScene {
     if (!width || !height) return;
     this.bounds = { width, height };
     this.renderer.setSize(width, height);
-    // Fit the board and reserve benches into the unobscured HUD rectangle, not the whole canvas.
-    const local = new THREE.Box3();
-    for (const x of [-5.25, 5.25])
-      for (const z of [-5.2, 7.85])
-        for (const y of [0, 1.4])
-          local.expandByPoint(
-            new THREE.Vector3(x, y, z).applyMatrix4(this.camera.matrixWorldInverse),
-          );
+    this.composer.setSize(width, height);
     const sw = Math.max(100, width - this.safe.left - this.safe.right),
       sh = Math.max(100, height - this.safe.top - this.safe.bottom),
-      scale = Math.min(sw / (local.max.x - local.min.x), sh / (local.max.y - local.min.y));
-    const cx = (local.min.x + local.max.x) / 2 - (this.safe.left + sw / 2 - width / 2) / scale,
-      cy = (local.min.y + local.max.y) / 2 + (this.safe.top + sh / 2 - height / 2) / scale;
-    this.camera.left = cx - width / scale / 2;
-    this.camera.right = cx + width / scale / 2;
-    this.camera.top = cy + height / scale / 2;
-    this.camera.bottom = cy - height / scale / 2;
+      safeAspect = sw / sh,
+      distance = Math.max(15.5, safeAspect < 1.45 ? 23 / safeAspect : 17.5),
+      verticalPressure = Math.abs(this.safe.bottom - this.safe.top) / Math.max(1, height),
+      framedDistance = distance + verticalPressure * 2.5;
+    this.camera.aspect = width / height;
+    const facing = this.viewedSide ? -1 : 1;
+    // Keep the optical axis exactly on the board centre. HUD insets may zoom the view,
+    // but must never yaw/roll the battlefield or make one side appear larger.
+    this.camera.position.set(0, framedDistance * 0.67, framedDistance * 0.78 * facing);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld();
   }
   private draw(time: number): void {
     const dt = Math.min(50, time - this.last);
@@ -524,10 +544,11 @@ export class BoardScene {
       );
       v.model.position.set(
         -Math.sin(v.heading) * actionShift,
-        0,
+        0.12,
         -Math.cos(v.heading) * actionShift,
       );
       v.model.rotation.x = actionTilt;
+      animateUnitModel(v.model, time, action, playhead);
       if (remaining <= 0) this.pulses.delete(v.data.id);
       v.flash.visible = v.flashUntil > time;
       v.group.rotation.y = v.heading;
@@ -550,7 +571,7 @@ export class BoardScene {
       const p = this.project((i - 1) * 3.1, 0, 7.5);
       node.style.transform = `translate(-50%,-50%) translate(${p.x}px,${p.y}px)`;
     });
-    if (!document.hidden) this.renderer.render(this.scene, this.camera);
+    if (!document.hidden) this.composer.render();
     this.animation = requestAnimationFrame((t) => this.draw(t));
   }
   dispose(): void {
@@ -563,6 +584,7 @@ export class BoardScene {
     (this.destination.material as THREE.Material).dispose();
     this.flashMaterial.dispose();
     this.effects.dispose();
+    this.composer.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.overlay.remove();

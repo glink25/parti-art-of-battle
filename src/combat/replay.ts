@@ -20,6 +20,12 @@ export interface ReplayUnit {
   stunUntil: number;
   poisonUntil: number;
   buffUntil: number;
+  silencedUntil?: number;
+  tauntedUntil?: number;
+  itemsDisabledUntil?: number;
+  immunityUntil?: number;
+  armorDebuff?: number;
+  extremeTriggered?: boolean;
   deathAt: number | null;
   action: CombatAction | null;
 }
@@ -73,6 +79,12 @@ export function frame(s: BattleState, events: BattleEvent[] = []): ReplayFrame {
           stunUntil,
           poisonUntil,
           buffUntil,
+          silencedUntil,
+          tauntedUntil,
+          itemsDisabledUntil,
+          immunityUntil,
+          armorDebuff,
+          extremeTriggered,
           deathAt,
           action,
         }) => ({
@@ -89,6 +101,12 @@ export function frame(s: BattleState, events: BattleEvent[] = []): ReplayFrame {
           stunUntil,
           poisonUntil,
           buffUntil,
+          silencedUntil,
+          tauntedUntil,
+          itemsDisabledUntil,
+          immunityUntil,
+          armorDebuff,
+          extremeTriggered,
           deathAt,
           action: action ? { ...action } : null,
         }),
