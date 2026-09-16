@@ -51,17 +51,20 @@ export function assessPlacement(
   const fail = (reason: string): PlacementDecision => ({ ok: false, reason });
   const p = s.players[actor],
     u = s.units[intent.unitId];
-  if (s.phase !== 'prep') return fail('当前不能布阵');
+  if (s.phase !== 'prep' && s.phase !== 'battle') return fail('当前不能布阵');
   if (!p || s.teams[p.teamId]?.hp <= 0) return fail('没有可操作的席位');
   if (!u || u.teamId !== p.teamId) return fail('只能操作本队棋子');
   if (u.version !== intent.unitVersion) return fail('棋子已变化');
   if (!isPosition(u.position, limits)) return fail('源棋子位置无效');
+  if (s.phase === 'battle' && u.position.zone === 'board') return fail('战斗中不能调整出战阵容');
   if (intent.kind === 'swap') {
     const other = s.units[intent.targetId ?? ''];
     if (!other || other.id === u.id) return fail('请选择另一枚棋子');
     if (other.teamId !== p.teamId) return fail('不能与敌方换位');
     if (other.version !== intent.targetVersion) return fail('目标棋子已变化');
     if (!isPosition(other.position, limits)) return fail('目标棋子位置无效');
+    if (s.phase === 'battle' && other.position.zone === 'board')
+      return fail('战斗中不能调整出战阵容');
     if (u.position.zone === 'public' || other.position.zone === 'public')
       return fail('公共区棋子请先领取');
     if (
@@ -85,6 +88,7 @@ export function assessPlacement(
   }
   const pos = intent.position;
   if (!isPosition(pos, limits)) return fail('请放入己方有效格子');
+  if (s.phase === 'battle' && pos.zone === 'board') return fail('战斗中不能调整出战阵容');
   if (u.position.zone === 'bench' && u.ownerId !== actor) return fail('不能操作队友私人备战区');
   if (u.ownerId !== actor && u.position.zone === 'board' && pos.zone !== 'board')
     return fail('队友场上棋子仅可调整站位');

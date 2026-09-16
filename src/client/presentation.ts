@@ -28,3 +28,13 @@ export function preparationUnits(s: GameState, teamId: string): SceneUnit[] {
 export function replayUnits(f: ReplayFrame): SceneUnit[] {
   return f.units.map((u) => ({ ...u, x: u.x - 4.5, z: u.y - 4.5, ownerId: '' }));
 }
+export function battlePresentationUnits(
+  s: GameState,
+  teamId: string,
+  frame: ReplayFrame,
+): SceneUnit[] {
+  return [
+    ...replayUnits(frame),
+    ...preparationUnits(s, teamId).filter((u) => s.units[u.id]?.position.zone !== 'board'),
+  ];
+}

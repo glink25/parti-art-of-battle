@@ -16,12 +16,21 @@ export type HudAction =
   | 'item'
   | 'confirm-sell'
   | 'cancel-sell';
+export interface UnitDetailView {
+  id: string;
+  defId: string;
+  star: number;
+  items: string[];
+  ownerName: string;
+  unit?: UnitInstance;
+  readOnly: boolean;
+}
 export class GameHud {
   readonly board: HTMLElement;
   private state: GameState | null = null;
   private actor = '';
   private view = 'team-0';
-  private selected: UnitInstance | undefined;
+  private selected: UnitDetailView | undefined;
   private shopOpen = true;
   private dragging = false;
   private shopButtons: HTMLButtonElement[] = [];
@@ -47,7 +56,7 @@ export class GameHud {
   <div id="shop-odds" class="shop-odds" data-ui aria-label="商店等级概率"><strong id="odds-level">Lv.1</strong><span data-tier="1"></span><span data-tier="2"></span><span data-tier="3"></span><span data-tier="4"></span><span data-tier="5"></span></div>
   <div class="corner-controls" data-ui><button id="menu-toggle" class="round-button" aria-label="设置与玩法">${icon('gear')}</button><button id="home" class="round-button" aria-label="返回本队" hidden>${icon('back')}</button></div>
   <div class="formation-hud" data-ui><div class="side-heading"><span>阵容羁绊</span><b id="population">0 / 0</b></div><button id="synergy-toggle" class="round-button" aria-label="羁绊">${icon('magic')}</button><div id="synergies"></div></div>
-  <div class="battle-stats" data-ui aria-live="polite"><div class="side-heading"><span>造成伤害</span><small>实时</small></div><div id="damage-rows"><p>同步战斗数据</p></div></div>
+  <div class="battle-stats" data-ui aria-live="polite"><div class="side-heading"><span>造成伤害</span><small id="damage-caption">暂无数据</small></div><div id="damage-rows"><p>暂无战斗数据</p></div></div>
   <div class="ranking-hud" data-ui><div class="side-heading"><span>战队排名</span><small>生命</small></div><button id="ranking-toggle" class="round-button" aria-label="队伍排名">${icon('flag')}</button><div id="teams"></div></div>
   <div class="item-hud" data-ui><button id="bag-toggle" class="round-button" aria-label="装备背包">${icon('bag')}<small id="bag-count">0</small></button><div id="items" class="item-tray" hidden></div><p id="item-description" hidden></p></div>
   <div id="detail" class="unit-detail" data-ui hidden><button id="detail-close" class="close-button" aria-label="关闭棋子详情">${icon('close')}</button><img id="detail-portrait" alt=""><div class="detail-heading"><h2 id="detail-name"></h2><span id="detail-stars"></span><small id="detail-owner"></small></div><p id="detail-tags"></p><div id="detail-stats"></div><p id="detail-skill"></p><div id="detail-items"><span class="equipped-slot"><i></i><small></small></span><span class="equipped-slot"><i></i><small></small></span><span class="equipped-slot"><i></i><small></small></span></div><div class="unit-actions"><button id="swap-mode">${icon('swap')}换位</button><button id="demand">${icon('flag')}需要</button><button id="sell">${icon('coin')}<span id="sell-value"></span></button></div></div>
@@ -130,7 +139,11 @@ export class GameHud {
     this.updateShopVisibility();
   }
   private updateShopVisibility(): void {
-    this.el('shop').hidden = this.state?.phase !== 'prep' || !this.shopOpen || this.dragging;
+    this.el('shop').hidden =
+      !this.state ||
+      !['prep', 'battle'].includes(this.state.phase) ||
+      !this.shopOpen ||
+      this.dragging;
     this.root.classList.toggle('shop-open', !this.el('shop').hidden);
     this.el('shop-toggle').setAttribute('aria-pressed', String(this.shopOpen));
     this.layout();
@@ -240,19 +253,24 @@ export class GameHud {
     s: GameState,
     actor: string,
     view: string,
-    selectedId: string | null,
+    selected: UnitDetailView | undefined,
     itemSlot: number | null = null,
   ): void {
     const viewChanged = this.view !== view;
     this.state = s;
     this.actor = actor;
     this.view = view;
-    this.selected = s.units[selectedId ?? ''];
+    this.selected = selected;
     this.root.dataset.phase = s.phase;
     this.root.classList.toggle('viewing-away', view !== s.players[actor]?.teamId);
     const p = s.players[actor],
       team = s.teams[view],
-      can = s.phase === 'prep' && !!p && (s.teams[p.teamId]?.hp ?? 0) > 0;
+      canManage =
+        ['prep', 'battle'].includes(s.phase) &&
+        !!p &&
+        view === p.teamId &&
+        (s.teams[p.teamId]?.hp ?? 0) > 0,
+      canPrepare = s.phase === 'prep' && canManage;
     if (this.phase !== s.phase) {
       this.phase = s.phase;
       if (s.phase === 'prep') {
@@ -263,7 +281,7 @@ export class GameHud {
         this.closeTransient();
         this.shopOpen = false;
         this.el('items').hidden = true;
-        this.setCombatStats([], true);
+        this.setCombatStats([], true, '本场实时');
         this.showPhase('战斗开始', `第 ${s.round} 回合`);
       }
       if (s.phase === 'settlement') {
@@ -278,7 +296,7 @@ export class GameHud {
       }
       this.updateShopVisibility();
     }
-    if (viewChanged && s.phase === 'battle') this.setCombatStats([], true);
+    if (viewChanged && s.phase === 'battle') this.setCombatStats([], true, '本场实时');
     const battle = s.battles.find((b) => b.teams[0] === view || (b.teams[1] === view && !b.mirror)),
       opponent = battle ? battle.teams[battle.teams[0] === view ? 1 : 0] : null,
       enemy = opponent ? s.teams[opponent] : undefined;
@@ -327,13 +345,14 @@ export class GameHud {
       .querySelectorAll<HTMLElement>('[data-tier]')
       .forEach((node, i) => (node.textContent = `★${i + 1} ${odds[i]}%`));
     this.el<HTMLButtonElement>('xp').disabled =
-      !can || (p?.gold ?? 0) < RULES.xpCost || level === RULES.maxLevel;
-    this.el<HTMLButtonElement>('refresh').disabled = !can || (p?.gold ?? 0) < RULES.refreshCost;
-    this.el<HTMLButtonElement>('lock').disabled = !can;
-    this.el<HTMLButtonElement>('shop-toggle').disabled = !can;
+      !canManage || (p?.gold ?? 0) < RULES.xpCost || level === RULES.maxLevel;
+    this.el<HTMLButtonElement>('refresh').disabled =
+      !canManage || (p?.gold ?? 0) < RULES.refreshCost;
+    this.el<HTMLButtonElement>('lock').disabled = !canManage;
+    this.el<HTMLButtonElement>('shop-toggle').disabled = !canManage;
     this.el('lock').classList.toggle('active', p?.shopLocked ?? false);
     this.el('lock').setAttribute('aria-pressed', String(p?.shopLocked ?? false));
-    this.el<HTMLButtonElement>('ready').disabled = !can;
+    this.el<HTMLButtonElement>('ready').disabled = !canPrepare;
     this.el('ready').querySelector('span')!.textContent = p?.ready ? '已就绪' : '准备完成';
     this.el('ready').classList.toggle('active', p?.ready ?? false);
     const units = Object.values(s.units).filter(
@@ -357,7 +376,7 @@ export class GameHud {
     this.shopButtons.forEach((b, i) => {
       const id = p?.shop[i],
         def = id ? UNIT_BY_ID[id] : null;
-      b.disabled = !can || !def || (p?.gold ?? 0) < def.cost;
+      b.disabled = !canManage || !def || (p?.gold ?? 0) < def.cost;
       b.classList.toggle('empty', !def);
       b.style.setProperty(
         '--rarity',
@@ -389,7 +408,7 @@ export class GameHud {
     this.itemButtons.forEach((b, i) => {
       const id = p?.items[i];
       b.hidden = !id;
-      b.disabled = !can;
+      b.disabled = !canManage;
       if (id) {
         if (b.dataset.art !== id) {
           b.dataset.art = id;
@@ -433,7 +452,7 @@ export class GameHud {
         b.classList.toggle('selected', t.id === view);
         b.classList.toggle('eliminated', t.hp <= 0);
       });
-    this.updateDetail(can);
+    this.updateDetail(canManage, canPrepare);
     const lobby = this.el('lobby');
     lobby.hidden = !['waiting', 'finished', 'error'].includes(s.phase);
     lobby.querySelector('h1')!.textContent =
@@ -455,7 +474,7 @@ export class GameHud {
     this.el('debug-log').textContent =
       team?.players.flatMap((id) => s.players[id].botMemory.log).join('\n') ?? '';
   }
-  private updateDetail(can: boolean): void {
+  private updateDetail(canManage: boolean, canPrepare: boolean): void {
     const u = this.selected;
     this.el('detail').hidden = !u || this.dragging;
     this.root.classList.toggle('unit-selected', !!u && !this.dragging);
@@ -469,7 +488,7 @@ export class GameHud {
     }
     this.el('detail-name').textContent = d.name;
     this.el('detail-stars').textContent = '★'.repeat(u.star);
-    this.el('detail-owner').textContent = this.state?.players[u.ownerId]?.name ?? '';
+    this.el('detail-owner').textContent = u.ownerName;
     this.el('detail-tags').textContent = d.tags
       .map((t) => SYNERGIES.find((x) => x.id === t)!.name)
       .join(' · ');
@@ -487,11 +506,19 @@ export class GameHud {
         slot.querySelector('small')!.textContent = id ? ITEM_BY_ID[id].name : '空槽';
         slot.title = id ? ITEM_BY_ID[id].description : '从背包选择装备';
       });
+    const live = u.unit,
+      reserveOnly = this.state?.phase !== 'battle' || live?.position.zone === 'bench';
     this.el<HTMLButtonElement>('sell').disabled =
-      !can || u.ownerId !== this.actor || u.position.zone === 'public';
-    this.el('sell-value').textContent = String(this.salePrice(u));
-    this.el<HTMLButtonElement>('swap-mode').disabled = !can || u.position.zone === 'public';
-    this.el<HTMLButtonElement>('demand').disabled = !can;
+      !canManage ||
+      !live ||
+      u.readOnly ||
+      live.ownerId !== this.actor ||
+      live.position.zone === 'public' ||
+      !reserveOnly;
+    this.el('sell-value').textContent = live ? String(this.salePrice(live)) : '—';
+    this.el<HTMLButtonElement>('swap-mode').disabled =
+      !canManage || !live || u.readOnly || live.position.zone === 'public' || !reserveOnly;
+    this.el<HTMLButtonElement>('demand').disabled = !canPrepare || u.readOnly;
   }
   salePrice(u: UnitInstance): number {
     return saleValue(u);
@@ -510,14 +537,15 @@ export class GameHud {
     this.el('sell-confirm').hidden = true;
     this.root.classList.remove('sell-confirming');
   }
-  setCombatStats(rows: CombatStatRow[], syncing = false): void {
+  setCombatStats(rows: CombatStatRow[], syncing = false, caption = '本场实时'): void {
     const box = this.el('damage-rows');
+    this.el('damage-caption').textContent = caption;
     if (syncing) {
       box.innerHTML = '<p>同步战斗数据</p>';
       return;
     }
     if (!rows.length) {
-      box.innerHTML = '<p>尚未造成伤害</p>';
+      box.innerHTML = caption === '暂无数据' ? '<p>暂无战斗数据</p>' : '<p>尚未造成伤害</p>';
       return;
     }
     const maximum = Math.max(1, ...rows.map((row) => row.damage));

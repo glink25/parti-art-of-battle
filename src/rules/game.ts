@@ -151,10 +151,12 @@ function insectLevel(s: GameState, teamId: string): number {
   ).size;
 }
 export function mergeUnits(s: GameState, p: PlayerState): void {
+  const team = s.teams[p.teamId];
+  if (!team) return;
   let changed = true;
   while (changed) {
     changed = false;
-    const units = playerUnits(s, p.id).sort(
+    const units = teamUnits(s, p.teamId).sort(
       (a, b) =>
         (a.position.zone === 'public' ? 0 : a.position.zone === 'board' ? 1 : 2) -
           (b.position.zone === 'public' ? 0 : b.position.zone === 'board' ? 1 : 2) ||
@@ -163,7 +165,19 @@ export function mergeUnits(s: GameState, p: PlayerState): void {
           : 0) ||
         compareId(a.id, b.id),
     );
-    for (const keeper of units) {
+    const merge = (keeper: UnitInstance, group: UnitInstance[]) => {
+      const allItems = group.flatMap((u) => u.items);
+      keeper.copies = group.reduce((n, u) => n + u.copies, 0);
+      keeper.star++;
+      keeper.items = allItems.slice(0, RULES.itemSlots);
+      s.players[keeper.ownerId].items.push(...allItems.slice(RULES.itemSlots));
+      keeper.version++;
+      for (const u of group) if (u.id !== keeper.id) delete s.units[u.id];
+      changed = true;
+    };
+    // A public unit is an explicit team merge anchor. The lowest public slot wins
+    // deterministically and keeps both its position and owner.
+    for (const keeper of units.filter((u) => u.position.zone === 'public')) {
       if (keeper.star >= 3) continue;
       const insects = insectLevel(s, p.teamId),
         fastMerge =
@@ -174,15 +188,28 @@ export function mergeUnits(s: GameState, p: PlayerState): void {
         .filter((u) => u.defId === keeper.defId && u.star === keeper.star)
         .slice(0, required);
       if (group.length < required) continue;
-      const allItems = group.flatMap((u) => u.items);
-      keeper.copies = group.reduce((n, u) => n + u.copies, 0);
-      keeper.star++;
-      keeper.items = allItems.slice(0, RULES.itemSlots);
-      p.items.push(...allItems.slice(RULES.itemSlots));
-      keeper.version++;
-      for (const u of group) if (u.id !== keeper.id) delete s.units[u.id];
-      changed = true;
+      merge(keeper, group);
       break;
+    }
+    if (changed) continue;
+    // Without a public anchor, private and fielded units remain owner-local.
+    for (const playerId of team.players) {
+      const owned = units.filter((u) => u.ownerId === playerId && u.position.zone !== 'public');
+      for (const keeper of owned) {
+        if (keeper.star >= 3) continue;
+        const insects = insectLevel(s, p.teamId),
+          fastMerge =
+            UNIT_BY_ID[keeper.defId].tags.includes('insectoid') &&
+            ((keeper.star === 1 && insects >= 2) || (keeper.star === 2 && insects >= 4)),
+          required = fastMerge ? 2 : 3,
+          group = owned
+            .filter((u) => u.defId === keeper.defId && u.star === keeper.star)
+            .slice(0, required);
+        if (group.length < required) continue;
+        merge(keeper, group);
+        break;
+      }
+      if (changed) break;
     }
   }
 }
@@ -193,14 +220,16 @@ function reject(message: string): never {
   throw new Error(message);
 }
 function mutate(s: GameState, p: PlayerState, c: Command): void {
-  if (s.phase !== 'prep') reject('仅准备阶段可操作');
+  if (s.phase !== 'prep' && s.phase !== 'battle') reject('当前阶段不可操作');
   if (s.teams[p.teamId].hp <= 0) reject('队伍已淘汰');
   if (c.round !== s.round) reject('回合已变化，请重试');
   if (c.type === 'ready') {
+    if (s.phase !== 'prep') reject('仅准备阶段可以就绪');
     p.ready = !p.ready;
     return;
   }
   if (c.type === 'demand') {
+    if (s.phase !== 'prep') reject('仅准备阶段可以标记需求');
     if (c.defId !== null && !UNITS.some((u) => u.id === c.defId)) reject('未知棋子');
     p.demand = c.defId ?? null;
     return;
@@ -260,6 +289,7 @@ function mutate(s: GameState, p: PlayerState, c: Command): void {
   if (c.unitVersion !== u.version) reject('棋子已被移动或合成');
   if (c.type === 'sell') {
     if (u.ownerId !== p.id || u.position.zone === 'public') reject('只能出售自己的非公共区棋子');
+    if (s.phase === 'battle' && u.position.zone !== 'bench') reject('战斗中只能出售备战区棋子');
     p.gold += sellValue(u);
     p.items.push(...u.items);
     s.pool[u.defId] += u.copies;
@@ -268,6 +298,7 @@ function mutate(s: GameState, p: PlayerState, c: Command): void {
   }
   if (c.type === 'equip') {
     if (u.ownerId !== p.id || u.position.zone === 'public') reject('只能装备自己的非公共区棋子');
+    if (s.phase === 'battle' && u.position.zone !== 'bench') reject('战斗中只能装备备战区棋子');
     if (!Number.isInteger(c.itemSlot) || c.itemSlot! < 0 || c.itemSlot! >= p.items.length)
       reject('装备不存在');
     if (u.items.length >= RULES.itemSlots) reject('装备槽已满');
@@ -277,6 +308,14 @@ function mutate(s: GameState, p: PlayerState, c: Command): void {
     return;
   }
   if (c.type === 'move' || c.type === 'swap') {
+    const target = c.type === 'swap' ? s.units[c.targetId ?? ''] : undefined;
+    if (
+      s.phase === 'battle' &&
+      (u.position.zone === 'board' ||
+        c.position?.zone === 'board' ||
+        target?.position.zone === 'board')
+    )
+      reject('战斗中不能调整出战阵容');
     const decision = assessPlacement(
       s,
       p.id,

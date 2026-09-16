@@ -59,6 +59,9 @@ function pumpBots(ctx: RoomContext): void {
   if (work) schedule(ctx, 'bots', 30, () => pumpBots(ctx));
 }
 function beginCompute(ctx: RoomContext): void {
+  // `closing` only seals the expired preparation window. Battle commands operate
+  // on the persistent bench/shop while descriptors below remain frozen.
+  closing = false;
   executor = new LocalBattleExecutor(ctx.state.battles.filter((b) => !ctx.state.results[b.id]));
   roundComputeMs = 0;
   maxSliceMs = 0;
@@ -184,7 +187,7 @@ export default defineRoom({
         ctx.send(player.id, 'game:command', receipt);
         return;
       }
-      if (closing || (ctx.state.phase === 'prep' && ctx.now() >= ctx.state.deadline)) {
+      if (ctx.state.phase === 'prep' && (closing || ctx.now() >= ctx.state.deadline)) {
         ctx.send(player.id, 'game:command', {
           commandId: (payload as { commandId?: string })?.commandId,
           ok: false,

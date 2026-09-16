@@ -207,20 +207,97 @@ test('public units merge with the same owner and keep the public slot', () => {
   assertInvariants(s);
 });
 
-test('public units do not merge across owners until received', () => {
+test('a public anchor merges across owners and keeps its slot and owner', () => {
   const s = setup();
   unit(s, 'one', 'a', { zone: 'bench', slot: 0 });
-  unit(s, 'two', 'a', { zone: 'bench', slot: 1 });
+  unit(s, 'two', 'a', { zone: 'board', x: 0, y: 5 });
   unit(s, 'three', 'b', { zone: 'public', slot: 0 });
+  s.units.three.items = ['blade', 'book'];
+  s.units.two.items = ['battery'];
+  s.units.one.items = ['shield'];
+  mergeUnits(s, s.players.a);
+  assert.equal(Object.keys(s.units).length, 1);
+  assert.equal(s.units.three.star, 2);
+  assert.equal(s.units.three.ownerId, 'b');
+  assert.deepEqual(s.units.three.position, { zone: 'public', slot: 0 });
+  assert.deepEqual(s.units.three.items, ['blade', 'book', 'battery']);
+  assert.deepEqual(s.players.b.items, ['shield']);
+  assertInvariants(s);
+});
+
+test('private units from different owners do not merge without a public anchor', () => {
+  const s = setup();
+  unit(s, 'one', 'a', { zone: 'bench', slot: 0 });
+  unit(s, 'two', 'a', { zone: 'board', x: 0, y: 5 });
+  unit(s, 'three', 'b', { zone: 'bench', slot: 0 });
   mergeUnits(s, s.players.a);
   assert.equal(Object.keys(s.units).length, 3);
+  assertInvariants(s);
+});
+
+test('the lowest matching public slot deterministically owns a multi-public merge', () => {
+  const s = setup();
+  unit(s, 'public-high', 'a', { zone: 'public', slot: 3 });
+  unit(s, 'private', 'a', { zone: 'bench', slot: 0 });
+  unit(s, 'public-low', 'b', { zone: 'public', slot: 1 });
+  mergeUnits(s, s.players.a);
+  assert.deepEqual(Object.keys(s.units), ['public-low']);
+  assert.equal(s.units['public-low'].ownerId, 'b');
+  assert.equal(s.units['public-low'].star, 2);
+  assert.deepEqual(s.units['public-low'].position, { zone: 'public', slot: 1 });
+  assertInvariants(s);
+});
+
+test('battle permits economy and reserve operations but freezes field operations', () => {
+  const s = setup();
+  s.phase = 'battle';
+  s.players.a.level = 2;
+  s.players.a.exp = 1;
+  unit(s, 'bench', 'a', { zone: 'bench', slot: 0 });
+  unit(s, 'field', 'a', { zone: 'board', x: 0, y: 5 });
+  s.players.a.items = ['blade'];
+  s.players.a.shop[0] = 'gunner';
+  s.pool.gunner--;
+  const gold = s.players.a.gold;
+  assert.equal(cmd(s, 'a', 'buy', { slot: 0, shopVersion: 0 }).ok, true);
+  assert.equal(s.players.a.gold, gold - 1);
+  const purchased = Object.values(s.units).find((value) => value.defId === 'gunner')!;
+  assert.equal(cmd(s, 'a', 'lock').ok, true);
+  assert.equal(s.players.a.shopLocked, true);
+  assert.equal(cmd(s, 'a', 'refresh').ok, true);
+  assert.equal(cmd(s, 'a', 'xp').ok, true);
   assert.equal(
-    cmd(s, 'a', 'move', { unitId: 'three', unitVersion: 0, position: { zone: 'bench', slot: 2 } })
-      .ok,
+    cmd(s, 'a', 'equip', {
+      unitId: 'bench',
+      unitVersion: 0,
+      itemSlot: 0,
+      itemId: 'blade',
+    }).ok,
     true,
   );
-  assert.equal(Object.keys(s.units).length, 1);
-  assert.equal(Object.values(s.units)[0].star, 2);
+  assert.equal(
+    cmd(s, 'a', 'sell', { unitId: purchased.id, unitVersion: purchased.version }).ok,
+    true,
+  );
+  assert.equal(
+    cmd(s, 'a', 'move', {
+      unitId: 'bench',
+      unitVersion: 1,
+      position: { zone: 'public', slot: 0 },
+    }).ok,
+    true,
+  );
+  assert.equal(
+    cmd(s, 'a', 'move', {
+      unitId: 'field',
+      unitVersion: 0,
+      position: { zone: 'bench', slot: 2 },
+    }).ok,
+    false,
+  );
+  assert.equal(cmd(s, 'a', 'sell', { unitId: 'field', unitVersion: 0 }).ok, false);
+  assert.equal(cmd(s, 'a', 'ready').ok, false);
+  assert.deepEqual(s.units.field.position, { zone: 'board', x: 0, y: 5 });
   assertInvariants(s);
 });
 

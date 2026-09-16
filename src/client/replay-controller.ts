@@ -109,10 +109,9 @@ export class ReplayController {
       this.sent = performance.now();
       this.gateway.send('clock', { nonce: ++this.nonce });
     }
-    const d =
-      s.phase === 'battle'
-        ? s.battles.find((b) => b.teams[0] === team || (b.teams[1] === team && !b.mirror))
-        : null;
+    const d = ['battle', 'settlement', 'finished'].includes(s.phase)
+      ? s.battles.find((b) => b.teams[0] === team || (b.teams[1] === team && !b.mirror))
+      : null;
     if (!d) {
       this.id = '';
       this.replay = null;
@@ -150,13 +149,21 @@ export class ReplayController {
   }
   tick(): { remaining: number; active: boolean } {
     const now = performance.now();
-    if (this.replay && this.state?.phase === 'battle' && !this.fallback) {
-      const index = this.state.deadline
-        ? Math.max(
-            0,
-            Math.min(this.replay.frames.length - 1, Math.floor((now - this.started) / 200)),
-          )
-        : 0;
+    if (
+      this.replay &&
+      this.state &&
+      ['battle', 'settlement', 'finished'].includes(this.state.phase) &&
+      !this.fallback
+    ) {
+      const index =
+        this.state.phase !== 'battle'
+          ? this.replay.frames.length - 1
+          : this.state.deadline
+            ? Math.max(
+                0,
+                Math.min(this.replay.frames.length - 1, Math.floor((now - this.started) / 200)),
+              )
+            : 0;
       if (index !== this.index) {
         const events =
           index > this.index && this.index >= 0 && index - this.index < 6

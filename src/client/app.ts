@@ -3,10 +3,12 @@ import { CONTENT_HASH, RULES } from '../content';
 import { createGateway, type GameGateway } from './gateway';
 import { GameResources } from './resources';
 import { BoardScene } from './scene';
-import { GameHud, type HudAction } from './hud/hud';
+import { GameHud, type HudAction, type UnitDetailView } from './hud/hud';
 import { InputController } from './input';
 import { ReplayController } from './replay-controller';
-import { preparationUnits, replayUnits } from './presentation';
+import { battlePresentationUnits, preparationUnits } from './presentation';
+import type { ReplayFrame } from '../combat/replay';
+import type { CombatStatRow } from './combat-stats';
 interface Pending {
   actor: string;
   command: Command;
@@ -27,6 +29,9 @@ export class GameApp {
   private offs: (() => void)[] = [];
   private animation = 0;
   private disposed = false;
+  private combatDetails = new Map<string, UnitDetailView>();
+  private currentFrame: ReplayFrame | null = null;
+  private lastDamage = new Map<string, CombatStatRow[]>();
   constructor(private root: HTMLElement) {
     this.hud = new GameHud(root, this.resources, (name, value) => this.action(name, value));
   }
@@ -47,14 +52,28 @@ export class GameApp {
         view: () => this.view,
         send: (c) => this.send(c),
         changed: () => this.render(),
+        detail: (id) => this.detail(id),
       });
       this.replay = new ReplayController(
         this.gateway,
         (frame, events, damage) => {
-          this.scene?.update(replayUnits(frame), null);
+          this.currentFrame = frame;
+          this.updateCombatDetails(frame);
+          if (this.state)
+            this.scene?.update(
+              battlePresentationUnits(this.state, this.view, frame),
+              this.input?.selectedId ?? null,
+            );
           this.scene?.combatFrame(frame);
           this.scene?.events(events);
-          this.hud.setCombatStats(damage);
+          this.lastDamage.set(this.view, damage);
+          this.hud.setCombatStats(
+            damage,
+            false,
+            this.state?.phase === 'battle' ? '本场实时' : '上一场',
+          );
+          this.input?.reconcile();
+          this.render();
         },
         (message) => this.hud.showNotice(message),
       );
@@ -107,10 +126,66 @@ export class GameApp {
     }
     const battle = this.replay?.update(s, this.view);
     if (!battle) {
+      this.currentFrame = null;
+      this.combatDetails.clear();
       this.scene?.clearCombat();
       this.scene?.update(preparationUnits(s, this.view), this.input?.selectedId ?? null);
+      const damage = this.lastDamage.get(this.view);
+      this.hud.setCombatStats(damage ?? [], false, damage ? '上一场' : '暂无数据');
+    } else if (this.currentFrame) {
+      this.scene?.update(
+        battlePresentationUnits(s, this.view, this.currentFrame),
+        this.input?.selectedId ?? null,
+      );
+    } else {
+      this.scene?.clearCombat();
+      this.scene?.update(
+        preparationUnits(s, this.view).filter(
+          (unit) => s.units[unit.id]?.position.zone !== 'board',
+        ),
+        this.input?.selectedId ?? null,
+      );
     }
     this.render();
+  }
+  private detail(id: string): UnitDetailView | undefined {
+    const u = this.state?.units[id];
+    if (u)
+      return {
+        id: u.id,
+        defId: u.defId,
+        star: u.star,
+        items: u.items,
+        ownerName: this.state?.players[u.ownerId]?.name ?? '',
+        unit: u,
+        readOnly: false,
+      };
+    return this.combatDetails.get(id);
+  }
+  private updateCombatDetails(frame: ReplayFrame): void {
+    const battle = this.state?.battles.find((candidate) => candidate.id === frame.battleId),
+      frozen = new Map(battle?.sides.flat().map((unit) => [unit.id, unit]) ?? []);
+    this.combatDetails.clear();
+    for (const unit of frame.units) {
+      const source = frozen.get(unit.id),
+        teamId = battle?.teams[unit.side],
+        ownerName =
+          battle?.neutral && unit.side === 1
+            ? '野外守卫'
+            : source
+              ? (this.state?.players[source.ownerId]?.name ??
+                this.state?.teams[teamId ?? '']?.name ??
+                '')
+              : '召唤单位';
+      this.combatDetails.set(unit.id, {
+        id: unit.id,
+        defId: unit.defId,
+        star: unit.star,
+        items: source?.items ?? [],
+        ownerName,
+        readOnly: true,
+      });
+    }
   }
   private render(): void {
     if (!this.state || !this.gateway) return;
@@ -118,7 +193,7 @@ export class GameApp {
       this.state,
       this.gateway.playerId ?? '',
       this.view,
-      this.input?.selectedId ?? null,
+      this.input?.selectedId ? this.detail(this.input.selectedId) : undefined,
       this.input?.selectedItem?.slot ?? null,
     );
     this.scene?.setSelection(this.input?.selectedId ?? null);
@@ -175,8 +250,22 @@ export class GameApp {
       this.view = name === 'home' ? 'team-0' : String(value);
       this.input?.cancel();
       if (this.state) {
-        if (!this.replay?.update(this.state, this.view))
+        if (!this.replay?.update(this.state, this.view)) {
           this.scene?.update(preparationUnits(this.state, this.view), null);
+          const damage = this.lastDamage.get(this.view);
+          this.hud.setCombatStats(damage ?? [], false, damage ? '上一场' : '暂无数据');
+        } else {
+          this.currentFrame = null;
+          this.combatDetails.clear();
+          this.scene?.clearCombat();
+          this.scene?.update(
+            preparationUnits(this.state, this.view).filter(
+              (unit) => this.state?.units[unit.id]?.position.zone !== 'board',
+            ),
+            null,
+          );
+          this.hud.setCombatStats([], true, '本场实时');
+        }
         this.render();
       }
       return;

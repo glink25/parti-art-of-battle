@@ -2,7 +2,7 @@ import type { Command, CommandResult, GameState } from '../domain/types';
 import { assessPlacement, samePosition } from '../domain/placement';
 import { PLACEMENT_LIMITS, RULES } from '../content';
 import type { BoardScene, Pick } from './scene';
-import type { GameHud } from './hud/hud';
+import type { GameHud, UnitDetailView } from './hud/hud';
 export type InputMode =
   'idle' | 'selected' | 'dragging' | 'equipment' | 'swapping' | 'confirming-sell' | 'pending';
 interface InputHost {
@@ -11,6 +11,7 @@ interface InputHost {
   view(): string;
   send(command: Omit<Command, 'commandId' | 'round'>): string | null;
   changed(): void;
+  detail(id: string): UnitDetailView | undefined;
 }
 interface PointerSession {
   id: number;
@@ -89,7 +90,7 @@ export class InputController {
       p = s?.players[this.host.actor()];
     return (
       !!s &&
-      s.phase === 'prep' &&
+      (s.phase === 'prep' || s.phase === 'battle') &&
       this.host.view() === p?.teamId &&
       (s.teams[p.teamId]?.hp ?? 0) > 0
     );
@@ -271,6 +272,14 @@ export class InputController {
     if (!s || !this.canOperate()) return { ok: false, reason: '当前不能布阵' };
     if (!pick) return { ok: false, reason: '放回棋盘或备战区' };
     const target = s.units[pick.unitId ?? ''];
+    const source = s.units[id];
+    if (
+      s.phase === 'battle' &&
+      (source?.position.zone === 'board' ||
+        pick.position?.zone === 'board' ||
+        target?.position.zone === 'board')
+    )
+      return { ok: false, reason: '战斗中不能调整出战阵容' };
     const benchOwnerId =
       pick.position?.zone === 'bench'
         ? Object.values(s.players).find(
@@ -306,6 +315,7 @@ export class InputController {
       p = s?.players[this.host.actor()];
     if (!this.canOperate()) return '当前不能装备';
     if (!u || u.ownerId !== p?.id || u.position.zone === 'public') return '选择自己的非公共区棋子';
+    if (s?.phase === 'battle' && u.position.zone !== 'bench') return '战斗中只能装备备战区棋子';
     if (u.items.length >= RULES.itemSlots) return '装备槽已满';
     if (p.items[item.slot] !== item.id) return '装备背包已变化';
     return '';
@@ -331,10 +341,10 @@ export class InputController {
     });
   }
   select(id: string): void {
-    const u = this.host.state()?.units[id];
+    const u = this.host.detail(id);
     if (!u) return;
     this.selectedId = id;
-    this.selectedVersion = u.version;
+    this.selectedVersion = u.unit?.version ?? null;
     this.selectedItem = null;
     this.mode = 'selected';
     this.host.changed();
@@ -352,6 +362,7 @@ export class InputController {
       u.version !== version ||
       u.ownerId !== this.host.actor() ||
       u.position.zone === 'public' ||
+      (this.host.state()?.phase === 'battle' && u.position.zone !== 'bench') ||
       !this.canOperate()
     ) {
       this.mode = this.selectedId ? 'selected' : 'idle';
@@ -375,6 +386,7 @@ export class InputController {
       u.version !== candidate.version ||
       u.ownerId !== this.host.actor() ||
       u.position.zone === 'public' ||
+      (this.host.state()?.phase === 'battle' && u.position.zone !== 'bench') ||
       !this.canOperate()
     ) {
       this.cancelSell();
@@ -420,18 +432,28 @@ export class InputController {
   reconcile(): void {
     const s = this.host.state();
     if (!s) return;
-    if (!this.canOperate() && (this.pointer || this.selectedId || this.selectedItem)) {
+    if (
+      !this.canOperate() &&
+      (this.pointer ||
+        this.selectedItem ||
+        ['dragging', 'equipment', 'swapping', 'confirming-sell', 'pending'].includes(this.mode))
+    ) {
       this.cancel();
       return;
     }
     const source = this.pointer?.unitId ? s.units[this.pointer.unitId] : null;
-    if (this.pointer?.unitId && (!source || source.version !== this.pointer.version)) {
+    if (
+      this.pointer?.unitId &&
+      this.pointer.version !== undefined &&
+      (!source || source.version !== this.pointer.version)
+    ) {
       this.cancel();
       this.hud.showNotice('棋子已被移动、合成或转交');
       return;
     }
-    const u = s.units[this.selectedId ?? ''];
-    if (this.selectedId && (!u || u.version !== this.selectedVersion)) {
+    const u = s.units[this.selectedId ?? ''],
+      detail = this.selectedId ? this.host.detail(this.selectedId) : undefined;
+    if (this.selectedId && (!detail || (u && u.version !== this.selectedVersion))) {
       if (this.mode === 'pending') {
         if (u) this.selectedVersion = u.version;
         else this.selectedId = null;

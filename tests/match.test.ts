@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addPlayer, createGame, assertInvariants } from '../src/rules/game';
+import { addPlayer, applyCommand, createGame, assertInvariants } from '../src/rules/game';
 import {
   startMatch,
   freezeBattles,
@@ -84,4 +84,58 @@ test('a surviving alchemy tower grants its owner star-scaled victory gold', () =
   settleRound(s);
   assert.equal(s.players.a.gold - s.players.b.gold, 2);
   assert.ok(s.lastSummary.some((line) => line.includes('炼金塔 +2 金')));
+});
+
+test('battle economy can merge persistent units without changing the frozen battle', () => {
+  const s = createGame(123);
+  addPlayer(s, 'a', 'A', 'team-0', 0);
+  addPlayer(s, 'b', 'B', 'team-0', 1);
+  addPlayer(s, 'c', 'C', 'team-1', 0);
+  addPlayer(s, 'd', 'D', 'team-1', 1);
+  s.phase = 'prep';
+  s.round = 1;
+  s.players.a.gold = 10;
+  s.units.field = {
+    id: 'field',
+    defId: 'shield',
+    ownerId: 'a',
+    teamId: 'team-0',
+    star: 1,
+    copies: 1,
+    version: 0,
+    position: { zone: 'board', x: 0, y: 5 },
+    items: [],
+  };
+  s.units.public = {
+    id: 'public',
+    defId: 'shield',
+    ownerId: 'b',
+    teamId: 'team-0',
+    star: 1,
+    copies: 1,
+    version: 0,
+    position: { zone: 'public', slot: 0 },
+    items: [],
+  };
+  s.pool.shield -= 3;
+  s.players.a.shop[0] = 'shield';
+  freezeBattles(s);
+  const frozen = structuredClone(s.battles);
+  const before = s.battles.map(simulateBattle);
+  assert.equal(
+    applyCommand(s, 'a', {
+      commandId: 'battle-buy',
+      round: 1,
+      type: 'buy',
+      slot: 0,
+      shopVersion: 0,
+    }).ok,
+    true,
+  );
+  assert.deepEqual(s.battles, frozen);
+  assert.deepEqual(s.battles.map(simulateBattle), before);
+  assert.equal(s.units.public.star, 2);
+  assert.equal(s.units.public.ownerId, 'b');
+  assert.equal(s.units.field, undefined);
+  assertInvariants(s);
 });

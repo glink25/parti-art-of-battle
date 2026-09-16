@@ -1994,7 +1994,8 @@ button > * {
   color: #9eb9c0;
   font-size: 10px;
 }
-#app[data-phase='prep'] .shop-odds {
+#app[data-phase='prep'] .shop-odds,
+#app[data-phase='battle'] .shop-odds {
   display: flex;
 }
 .shop-odds strong {
@@ -2109,14 +2110,14 @@ button > * {
   top: 326px;
   left: max(10px, env(safe-area-inset-left));
   z-index: 5;
-  display: none;
+  display: block;
   width: 180px;
   border: 1px solid #43b9d35c;
   background: linear-gradient(90deg, #061722ed, #092533c9);
   box-shadow: 0 8px 24px #00101888;
 }
-#app[data-phase='battle'] .battle-stats {
-  display: block;
+#app.unit-selected .battle-stats {
+  left: 292px;
 }
 #damage-rows {
   padding: 4px;
@@ -2574,9 +2575,6 @@ button > * {
     0 10px 38px #000b,
     inset 0 0 25px #42dafa12;
 }
-#app[data-phase='battle'].unit-selected .battle-stats {
-  display: none;
-}
 .synergy-detail {
   top: 125px;
   left: 132px;
@@ -2733,6 +2731,9 @@ button > * {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+  #app.unit-selected .battle-stats {
+    left: 270px;
+  }
   .damage-row {
     height: 29px;
   }
@@ -2870,6 +2871,11 @@ button > * {
     max-height: 160px;
     overflow: hidden;
   }
+  #app.unit-selected .battle-stats {
+    right: 8px;
+    left: auto;
+    width: 116px;
+  }
   .recruit-shop {
     top: 158px;
     grid-template-columns: minmax(0, 1fr) 54px;
@@ -2951,6 +2957,9 @@ button > * {
     bottom: 76px;
     width: min(270px, calc(100vw - 18px));
     max-height: 250px;
+  }
+  #app.unit-selected .unit-detail {
+    width: calc(100vw - 142px);
   }
 }
 
