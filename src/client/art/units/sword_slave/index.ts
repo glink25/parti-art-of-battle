@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.06,
     recoil: 0.5,
   },
-  attack: f('melee', 'shards', 'box', 'ribbon', 0.18, 0, 10, 9),
-  skill: f('wave', 'crystal', 'box', 'ribbon', 0.4, 0.15, 22, 12),
+  attack: f('直剑冷光', 'cut', 'slash', 'sigil', 0.37, 15, 11, 0, 1.6, 1.3),
+  skill: f('剑势锋芒', 'ascend', 'slash', 'sigil', 0.82, 34, 22, 0, 1.6, 1.3),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

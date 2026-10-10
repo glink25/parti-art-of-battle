@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.04,
     recoil: 0.45,
   },
-  attack: f('bolt', 'burst', 'box', 'blocks', 0.12, 0.15, 9, 9),
-  skill: f('wave', 'shockwave', 'box', 'rings', 0.6, 0.35, 30, 8),
+  attack: f('变形炮弹', 'shell', 'muzzle', 'crystal', 0.3, 15, 9, 1.5, 1.79, 0.82),
+  skill: f('四瓣装甲能量重构', 'ascend', 'crystal', 'lightning', 0.75, 34, 20, 0, 1.79, 0.82),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

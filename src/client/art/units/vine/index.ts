@@ -1,14 +1,12 @@
-import { defineUnitArt as d, fx as f, palette as c, part as p } from '../../core/blueprint';
+import { parts, clips } from './sculpt';
+import { defineUnitArt as d, fx as f, palette as c } from '../../core/blueprint';
 export default d({
   id: 'vine',
   signature: 'twisted-vine-humanoid',
   palette: c(0x697b78, 0x49723e, 0x83ff82),
-  parts: [
-    p('roots', 'torus', 'dark', [0, 0.22, 0], [0.45, 0.32, 0.12], [Math.PI / 2, 0, 0]),
-    p('trunk', 'cylinder', 'primary', [0, 0.62, 0], [0.25, 0.65, 0.25]),
-    p('crown', 'dodeca', 'secondary', [0, 1.05, 0], [0.42, 0.34, 0.36]),
-    p('bud', 'sphere', 'energy', [0.25, 1.13, -0.18], [0.13, 0.13, 0.13], undefined, true),
-  ],
+  parts,
+  clips,
+  anchors: { attack: 'thornR2', skill: 'thornL2' },
   motion: {
     idle: 'coil',
     attack: 'claw',
@@ -17,7 +15,7 @@ export default d({
     amplitude: 0.1,
     recoil: 0.28,
   },
-  attack: f('melee', 'shards', 'cone', 'none', 0.15, 0, 8, 3),
-  skill: f('wave', 'flower', 'torus', 'ribbon', 0.62, 0.3, 30, 6),
+  attack: f('藤鞭抽击', 'thrust', 'root', 'leaf', 0.335, 15, 9, 0, 1.22, 0.82),
+  skill: f('荆棘攀缠', 'roots', 'root', 'leaf', 0.785, 34, 20, 0, 1.22, 0.82),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.18,
     recoil: 0.16,
   },
-  attack: f('bolt', 'burst', 'octa', 'sparks', 0.08, 0.2, 7, 10),
-  skill: f('beam', 'hex', 'octa', 'rings', 0.2, 0.1, 18, 6),
+  attack: f('焊枪电星', 'shot', 'lightning', 'muzzle', 0.44, 13, 11, 0.25, 0.65, 0.94),
+  skill: f('维修焊花束', 'mend', 'lightning', 'crystal', 0.89, 32, 22, 0, 0.65, 0.94),
   portrait: { yaw: 0.35, pitch: 0.12, scale: 1 },
 });

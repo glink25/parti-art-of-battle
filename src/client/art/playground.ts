@@ -87,7 +87,9 @@ export class ArtPlayground {
     this.animation = requestAnimationFrame((time) => this.draw(time));
     this.scheduleStrip();
     if (query.get('download') === '1')
-      requestAnimationFrame(() => this.exportPng(this.inspect === 'scene' ? 'model' : this.inspect));
+      requestAnimationFrame(() =>
+        this.exportPng(this.inspect === 'scene' ? 'model' : this.inspect),
+      );
   }
 
   private readMode(value: string | null): PreviewMode {
@@ -152,7 +154,11 @@ export class ArtPlayground {
       size = bounds.getSize(new THREE.Vector3()),
       center = bounds.getCenter(new THREE.Vector3());
     this.targetY = THREE.MathUtils.clamp(center.y, 0.65, 1.3);
-    this.distance = THREE.MathUtils.clamp(Math.max(4.8, size.x * 2.2, size.y * 2.15, size.z * 2), 4.8, 9);
+    this.distance = THREE.MathUtils.clamp(
+      Math.max(4.8, size.x * 2.2, size.y * 2.15, size.z * 2),
+      4.8,
+      9,
+    );
     this.camera.position.set(0, this.targetY + 1.35, this.distance);
     this.camera.lookAt(0, this.targetY, 0);
   }
@@ -181,7 +187,9 @@ export class ArtPlayground {
     );
     return [
       `${this.unitId} / ${art.signature}`,
-      `palette ${Object.entries(art.palette).map(([key, value]) => `${key}=#${value.toString(16).padStart(6, '0')}`).join('  ')}`,
+      `palette ${Object.entries(art.palette)
+        .map(([key, value]) => `${key}=#${value.toString(16).padStart(6, '0')}`)
+        .join('  ')}`,
       `motion ${JSON.stringify(art.motion)}`,
       `attack ${JSON.stringify(art.attack)}`,
       `skill  ${JSON.stringify(art.skill)}`,
@@ -227,7 +235,8 @@ export class ArtPlayground {
     this.root.classList.toggle('is-parameter-view', this.inspect === 'params');
     parameterSheet.hidden = this.inspect !== 'params';
     this.model.visible = this.inspect !== 'particles' && this.inspect !== 'params';
-    if (this.effect) this.effect.group.visible = this.inspect !== 'model' && this.inspect !== 'params';
+    if (this.effect)
+      this.effect.group.visible = this.inspect !== 'model' && this.inspect !== 'params';
     this.floor.visible = this.inspect !== 'params';
     this.grid.visible = this.inspect === 'scene';
   }
@@ -240,10 +249,14 @@ export class ArtPlayground {
       targetX: 0,
       targetY: 0,
       startedAt: 0,
-      releaseAt: 32,
-      impactAt: 70,
-      recoverAt: 100,
-      released: this.phase >= 0.32,
+      releaseAt: this.effect?.timing.release ?? 4,
+      impactAt: this.effect?.timing.impact ?? 7,
+      recoverAt:
+        (this.effect?.timing.impact ?? 7) +
+        (this.mode === 'skill'
+          ? UNIT_BY_ID[this.unitId].skill.timing.recoveryTicks
+          : UNIT_BY_ID[this.unitId].attackTiming.recoveryTicks),
+      released: this.phase * (this.effect?.timing.end ?? 14) >= (this.effect?.timing.release ?? 4),
       power: 1,
       physical: this.mode === 'attack',
       critical: false,
@@ -255,8 +268,9 @@ export class ArtPlayground {
     this.model.scale.setScalar(1);
     this.model.rotation.set(0, 0, 0);
     this.stage.rotation.set(this.pitch, yaw, 0);
-    if (this.mode !== 'model') animateUnitModel(this.model, time, this.action(), phase * 100);
-    this.effect?.sample(phase);
+    if (this.mode !== 'model')
+      animateUnitModel(this.model, time, this.action(), phase * (this.effect?.timing.end ?? 14));
+    this.effect?.sample(phase, this.model);
     this.applyInspectView();
     this.composer.render();
   }
@@ -266,7 +280,10 @@ export class ArtPlayground {
     this.last = time;
     if (this.playing && this.mode !== 'model')
       this.phase = (this.phase + dt * 0.001 * this.speed) % 1;
-    this.renderAt(this.phase, time);
+    this.renderAt(
+      this.phase,
+      this.playing ? time : this.phase * (this.effect?.timing.end ?? 14) * 50,
+    );
     const slider = this.root.querySelector('[data-control="phase"]') as HTMLInputElement;
     slider.value = String(this.phase);
     this.root.querySelector('output')!.textContent = `${Math.round(this.phase * 100)}%`;
@@ -459,7 +476,21 @@ export class ArtPlayground {
     this.camera.aspect = 280 / 180;
     this.camera.updateProjectionMatrix();
     this.root.querySelectorAll<HTMLElement>('[data-frame]').forEach((frame, index) => {
-      const phase = FRAME_PHASES[index];
+      const t = this.effect?.timing;
+      const phases = t
+        ? [
+            0,
+            t.release * 0.65,
+            t.release,
+            (t.release + t.impact) / 2,
+            t.impact,
+            t.impact + (t.end - t.impact) * 0.65,
+            t.end,
+          ].map((v) => v / t.end)
+        : FRAME_PHASES;
+      const phase = phases[index];
+      frame.querySelector('figcaption')!.textContent =
+        `${FRAME_LABELS[index]} · ${Math.round(phase * 100)}%`;
       const angle =
         this.mode === 'model' ? [0, -0.78, -1.57, -2.35, Math.PI, 2.35, 0.78][index] : this.yaw;
       this.renderAt(phase, phase * 1600, angle);

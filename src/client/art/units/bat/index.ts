@@ -1,14 +1,12 @@
-import { defineUnitArt as d, fx as f, palette as c, part as p } from '../../core/blueprint';
+import { defineUnitArt as d, fx as f, palette as c } from '../../core/blueprint';
+import { parts, clips } from './sculpt';
 export default d({
   id: 'bat',
   signature: 'crescent-sonic-wings',
   palette: c(0xa95f82, 0x55344f, 0x82e8ff),
-  parts: [
-    p('body', 'ico', 'primary', [0, 0.65, 0], [0.28, 0.35, 0.35]),
-    p('wingL', 'cone', 'secondary', [-0.45, 0.7, 0.08], [0.42, 0.68, 0.12], [0, 0, 0.9]),
-    p('wingR', 'cone', 'secondary', [0.45, 0.7, 0.08], [0.42, 0.68, 0.12], [0, 0, -0.9]),
-    p('mouth', 'torus', 'energy', [0, 0.62, -0.32], [0.16, 0.16, 0.06], [Math.PI / 2, 0, 0], true),
-  ],
+  parts,
+  clips,
+  anchors: { attack: 'mouth', skill: 'mouth' },
   motion: {
     idle: 'flutter',
     attack: 'bite',
@@ -17,7 +15,7 @@ export default d({
     amplitude: 0.22,
     recoil: 0.28,
   },
-  attack: f('wave', 'ripple', 'torus', 'rings', 0.24, 0.15, 14, 9),
-  skill: f('wave', 'shockwave', 'torus', 'rings', 0.55, 0.35, 28, 12),
+  attack: f('翼振声纹', 'wave', 'soul', 'feather', 0.335, 11, 7, 0, 0.65, 1.06),
+  skill: f('回声音爆', 'wave', 'soul', 'web', 0.785, 30, 18, 0, 0.65, 1.06),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

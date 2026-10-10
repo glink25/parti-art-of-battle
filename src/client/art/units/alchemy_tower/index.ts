@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.03,
     recoil: 0.16,
   },
-  attack: f('orb', 'burst', 'sphere', 'sparks', 0.1, 0.3, 7, 4),
-  skill: f('wave', 'flower', 'sphere', 'rings', 0.5, 0.4, 24, 6),
+  attack: f('无普攻', 'shot', 'acid', 'smoke', 0.405, 11, 11, 0.25, 1.41, 1.3),
+  skill: f('炼金蒸馏灵雾', 'ascend', 'acid', 'sigil', 0.855, 30, 22, 0, 1.41, 1.3),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

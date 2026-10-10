@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.1,
     recoil: 0.35,
   },
-  attack: f('melee', 'burst', 'cone', 'none', 0.18, 0, 9, 5),
-  skill: f('breath', 'vortex', 'sphere', 'ribbon', 0.48, 0.25, 28, 8),
+  attack: f('腐液吐沫', 'breath', 'acid', 'smoke', 0.44, 11, 9, 0, 0.65, 0.82),
+  skill: f('腐蚀吐息毒雾', 'breath', 'acid', 'web', 0.89, 30, 20, 0, 0.65, 0.82),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

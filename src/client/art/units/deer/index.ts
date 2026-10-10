@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.1,
     recoil: 0.18,
   },
-  attack: f('orb', 'burst', 'octa', 'sparks', 0.1, 0.35, 7, 6),
-  skill: f('wave', 'flower', 'dodeca', 'rings', 0.5, 0.5, 24, 5),
+  attack: f('鹿角叶矢', 'shot', 'leaf', 'soul', 0.3, 15, 7, 0.25, 0.84, 1.06),
+  skill: f('长生花露', 'bloom', 'leaf', 'water', 0.75, 34, 18, 0, 0.84, 1.06),
   portrait: { yaw: 0.35, pitch: 0.02, scale: 0.92 },
 });

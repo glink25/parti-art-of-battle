@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.14,
     recoil: 0.5,
   },
-  attack: f('bolt', 'burst', 'cylinder', 'sparks', 0.11, 0.2, 9, 10),
-  skill: f('arc', 'shockwave', 'sphere', 'rings', 0.36, 1.5, 22, 8),
+  attack: f('蟹炮水雾', 'shell', 'water', 'smoke', 0.405, 15, 11, 1.5, 1.03, 1.3),
+  skill: f('威胁锁定炮弹', 'shell', 'fire', 'water', 0.855, 34, 22, 1.5, 1.03, 1.3),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

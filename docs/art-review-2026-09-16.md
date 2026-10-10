@@ -34,4 +34,4 @@
 
 ## 后续批次进度（2026-09-16）
 
-详细记录见 [art-batches.md](art-batches.md)。目前已完成 33/62 枚选定视角的桌面造型复查，余 29 枚。本次新增 turtle、bull、venom、pangolin；最终合成图为 `../.tmp/beasts-b-final/sheet.png`。所有 62 种模型继续使用无统一彩色底座、无底部星级环方案，星级使用头顶标记；建筑自身承重结构保留。旧截图中的底座仅为历史状态。check、test（60 项）、build 通过。下一批为 bat、killerbee、burstbug、eye、spider、toad。桌面复查不等于真机或最终上线验收。
+详细记录见 [art-batches.md](art-batches.md)。截至 2026-10-09，已完成 62/62 枚选定视角的本轮桌面造型复查。本次新增 ukyo、nakoruru、athena、buddha；最终合成图为 `../.tmp/heroes-final/sheet.png`。橘右京修正纵向比例和持刀结构，娜可露露增加完整鹰伴，5 费雅典娜与斗战胜佛通过水晶展开、战甲长棍背光突出轮廓。全部模型保持无统一底盘、无底部星级环。check、test（66 项）、build 通过。下一阶段为此前高费卡体量横向复查、密集棋盘遮挡及连续动作检查；真机与最终上线验收仍未完成。

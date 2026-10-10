@@ -1,14 +1,12 @@
-import { defineUnitArt as d, fx as f, palette as c, part as p } from '../../core/blueprint';
+import { defineUnitArt as d, fx as f, palette as c } from '../../core/blueprint';
+import { parts, clips } from './sculpt';
 export default d({
   id: 'eye',
   signature: 'tripod-iris-gazer',
   palette: c(0x78b84c, 0x364d2c, 0xff6fcf),
-  parts: [
-    p('body', 'sphere', 'primary', [0, 0.68, 0], [0.38, 0.42, 0.3]),
-    p('iris', 'torus', 'secondary', [0, 0.7, -0.3], [0.25, 0.25, 0.08], [Math.PI / 2, 0, 0]),
-    p('pupil', 'sphere', 'energy', [0, 0.7, -0.4], [0.1, 0.14, 0.05], undefined, true),
-    p('legs', 'cone', 'dark', [0, 0.3, 0.05], [0.48, 0.52, 0.42]),
-  ],
+  parts,
+  clips,
+  anchors: { attack: 'pupil', skill: 'pupil' },
   motion: {
     idle: 'stalk',
     attack: 'cast',
@@ -17,7 +15,7 @@ export default d({
     amplitude: 0.09,
     recoil: 0.18,
   },
-  attack: f('beam', 'crystal', 'sphere', 'rings', 0.09, 0.05, 9, 7),
-  skill: f('beam', 'hex', 'sphere', 'ribbon', 0.25, 0.05, 20, 10),
+  attack: f('瞳光细束', 'shot', 'soul', 'sigil', 0.44, 11, 11, 0.25, 0.84, 1.3),
+  skill: f('凝视锁魂', 'seal', 'sigil', 'web', 0.89, 30, 22, 0, 0.84, 1.3),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

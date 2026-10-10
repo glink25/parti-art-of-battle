@@ -77,7 +77,7 @@ export default d({
     },
   },
   anchors: { attack: 'fistL', skill: 'muzzle' },
-  attack: f('melee', 'shards', 'box', 'sparks', 0.2, 0.05, 12, 7),
-  skill: f('arc', 'shockwave', 'sphere', 'rings', 0.58, 2.2, 42, 12),
+  attack: f('巨神铁拳', 'thrust', 'crack', 'muzzle', 0.335, 15, 11, 0, 1.41, 1.3),
+  skill: f('核子重炮熔爆', 'shell', 'fire', 'crack', 1.3, 34, 22, 0, 1.41, 1.3),
   portrait: { yaw: -0.42, pitch: 0.06, scale: 0.58 },
 });

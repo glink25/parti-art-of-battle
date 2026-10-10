@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.05,
     recoil: 0.56,
   },
-  attack: f('bolt', 'burst', 'cylinder', 'sparks', 0.08, 0.05, 7, 12),
-  skill: f('bolt', 'crystal', 'cylinder', 'ribbon', 0.12, 0.05, 15, 14),
+  attack: f('步枪细曳光', 'shot', 'muzzle', 'smoke', 0.335, 9, 9, 0.25, 1.03, 1.18),
+  skill: f('超频枪膛充能', 'ascend', 'muzzle', 'crystal', 0.6, 28, 20, 0, 1.03, 1.18),
   portrait: { yaw: -0.5, pitch: 0.02, scale: 0.96 },
 });

@@ -6,7 +6,13 @@ interface Disposable {
 }
 let app: Disposable;
 const query = new URLSearchParams(location.search);
-if (import.meta.env.DEV && query.has('art-review')) {
+if (import.meta.env.DEV && query.has('vfx-battle')) {
+  const { BattleEffectReview } = await import('./art/effects/battle-review');
+  app = new BattleEffectReview(root);
+} else if (import.meta.env.DEV && query.has('vfx-review')) {
+  const { EffectReview } = await import('./art/effects/review');
+  app = new EffectReview(root);
+} else if (import.meta.env.DEV && query.has('art-review')) {
   const { ArtReviewSheet } = await import('./art/review-sheet');
   app = new ArtReviewSheet(root);
 } else if (import.meta.env.DEV && query.get('art-playground') === '1') {

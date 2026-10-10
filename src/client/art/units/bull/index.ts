@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.07,
     recoil: 0.68,
   },
-  attack: f('melee', 'shards', 'cylinder', 'blocks', 0.25, 0, 11, 5),
-  skill: f('wave', 'shockwave', 'torus', 'blocks', 0.72, 0.2, 38, 8),
+  attack: f('重棍裂击', 'cleave', 'crack', 'slash', 0.3, 9, 7, 0, 1.41, 0.7),
+  skill: f('撼地怒吼裂隙', 'quake', 'crack', 'fire', 0.75, 28, 18, 0, 1.41, 0.7),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

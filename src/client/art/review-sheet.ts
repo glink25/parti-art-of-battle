@@ -65,7 +65,7 @@ export class ArtReviewSheet {
       const card = document.createElement('section');
       card.className = 'review-card';
       const title = document.createElement('h2');
-      title.textContent = `${UNIT_BY_ID[id].name} · ${id}`;
+      title.textContent = `${UNIT_BY_ID[id].name} · ${id} · ${UNIT_BY_ID[id].cost} 费`;
       const subtitle = document.createElement('p');
       subtitle.textContent = '右下：80 × 80 px 纯剪影（不以换色区分）';
       const mainImage = new Image();

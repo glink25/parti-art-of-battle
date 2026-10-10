@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.12,
     recoil: 0.3,
   },
-  attack: f('bolt', 'burst', 'cone', 'sparks', 0.1, 0.2, 8, 8),
-  skill: f('summon', 'vortex', 'octa', 'rings', 0.48, 0.8, 30, 12),
+  attack: f('舰炮航迹', 'shot', 'muzzle', 'water', 0.335, 13, 11, 0.25, 1.6, 0.94),
+  skill: f('甲板机群放飞', 'launch', 'feather', 'muzzle', 0.785, 32, 22, 0.25, 1.6, 0.94),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.08,
     recoil: 0.62,
   },
-  attack: f('melee', 'shards', 'cone', 'none', 0.2, 0, 10, 5),
-  skill: f('dash', 'shockwave', 'dodeca', 'blocks', 0.55, 0.2, 30, 10),
+  attack: f('象牙撼击', 'cleave', 'crack', 'smoke', 0.335, 13, 9, 0, 1.41, 1.18),
+  skill: f('巨象奔袭尘浪', 'phase', 'crack', 'bone', 0.785, 32, 20, 0, 1.41, 1.18),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

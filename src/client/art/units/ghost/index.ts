@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.16,
     recoil: 0.4,
   },
-  attack: f('bolt', 'burst', 'cone', 'sparks', 0.08, 0.1, 9, 12),
-  skill: f('dash', 'vortex', 'octa', 'ribbon', 0.42, 0.4, 30, 18),
+  attack: f('相位翼刃', 'cut', 'slash', 'lightning', 0.44, 15, 7, 0, 1.41, 1.06),
+  skill: f('幽灵折跃残像', 'phase', 'soul', 'lightning', 0.89, 34, 18, 0, 1.41, 1.06),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

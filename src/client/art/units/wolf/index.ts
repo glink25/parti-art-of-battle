@@ -16,7 +16,7 @@ export default d({
     amplitude: 0.06,
     recoil: 0.38,
   },
-  attack: f('melee', 'shards', 'cone', 'none', 0.17, 0, 9, 7),
-  skill: f('summon', 'vortex', 'ico', 'ribbon', 0.48, 0.65, 26, 10),
+  attack: f('幽爪双痕', 'cut', 'slash', 'soul', 0.405, 15, 9, 0, 0.84, 0.82),
+  skill: f('狼群幽影裂隙', 'portal', 'soul', 'feather', 0.855, 34, 20, 0, 0.84, 0.82),
   portrait: { yaw: -0.45, pitch: -0.08, scale: 0.72 },
 });

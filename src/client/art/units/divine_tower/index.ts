@@ -75,7 +75,7 @@ export default d({
     },
   },
   anchors: { attack: 'eye', skill: 'focus' },
-  attack: f('beam', 'crystal', 'cylinder', 'sparks', 0.08, 0.02, 8, 10),
-  skill: f('beam', 'hex', 'octa', 'rings', 0.3, 0.02, 28, 12),
+  attack: f('神威光矢', 'shot', 'lightning', 'sigil', 0.44, 13, 7, 0.25, 1.6, 0.7),
+  skill: f('神威封锁刻印', 'seal', 'sigil', 'lightning', 0.89, 32, 18, 0, 1.6, 0.7),
   portrait: { yaw: -0.38, pitch: 0.03, scale: 0.68 },
 });

@@ -12,16 +12,28 @@ export const part = (
 ): ArtPart => ({ name, primitive, color, position, scale, rotation, emissive, parent });
 
 export const fx = (
-  delivery: EffectArt['delivery'],
-  impact: EffectArt['impact'],
-  projectile: EffectArt['projectile'],
-  trail: EffectArt['trail'],
+  signature: string,
+  choreography: EffectArt['choreography'],
+  texture: EffectArt['texture'],
+  secondary: EffectArt['secondary'],
   width: number,
-  arc: number,
   particles: number,
-  spin: number,
-  hueShift = 0,
-): EffectArt => ({ delivery, impact, projectile, trail, width, arc, particles, spin, hueShift });
+  linger: number,
+  arc = 0,
+  turns = 1,
+  spread = 1,
+): EffectArt => ({
+  signature,
+  choreography,
+  texture,
+  secondary,
+  width,
+  particles,
+  linger,
+  arc,
+  turns,
+  spread,
+});
 
 export function defineUnitArt(definition: UnitArtDefinition): UnitArtDefinition {
   return definition;

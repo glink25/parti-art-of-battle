@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.05,
     recoil: 0.3,
   },
-  attack: f('melee', 'ripple', 'sphere', 'none', 0.18, 0, 8, 3),
-  skill: f('wave', 'ripple', 'torus', 'rings', 0.72, 0.3, 34, 7),
+  attack: f('玄甲水击', 'thrust', 'water', 'crack', 0.44, 15, 11, 0, 1.22, 1.3),
+  skill: f('玄水流纹结界', 'ward', 'water', 'sigil', 0.89, 34, 22, 0, 1.22, 1.3),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

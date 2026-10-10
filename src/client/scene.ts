@@ -3,6 +3,7 @@ import type { ReplayFrame } from '../combat/replay';
 import type { BattleEvent, CombatAction, Position } from '../domain/types';
 import { UNIT_BY_ID } from '../content';
 import { CombatEffects } from './combat-effects';
+import { modelAnchor } from './art/effects/runtime';
 import { GameResources } from './resources';
 import { positionToWorld } from './presentation';
 import { animateUnitModel } from './art/core/model';
@@ -323,9 +324,14 @@ export class BoardScene {
     for (const unit of frame.units) this.defIds.set(unit.id, unit.defId);
     for (const action of frame.actions) this.defIds.set(action.sourceId, action.defId);
     for (const burst of frame.deathBursts) this.defIds.set(burst.sourceId, burst.defId);
-    this.effects.sync(frame.units, frame.actions, frame.deathBursts, frame.tick, (id) =>
-      this.views.get(id)?.target.clone(),
-    );
+    this.effects.sync(frame.units, frame.actions, frame.deathBursts, frame.tick, (id, kind) => {
+      const view = this.views.get(id);
+      return view
+        ? kind
+          ? modelAnchor(view.model, kind)
+          : view.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.45, 0))
+        : undefined;
+    });
   }
   clearCombat(): void {
     this.effects.clear();

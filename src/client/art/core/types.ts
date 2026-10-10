@@ -87,17 +87,7 @@ export type ImpactStyle =
   | 'vortex'
   | 'web';
 
-export interface EffectArt {
-  delivery: DeliveryStyle;
-  impact: ImpactStyle;
-  projectile: ArtPrimitive;
-  trail: 'blocks' | 'embers' | 'needles' | 'none' | 'ribbon' | 'rings' | 'sparks';
-  width: number;
-  arc: number;
-  particles: number;
-  spin: number;
-  hueShift: number;
-}
+export type EffectArt = import('../effects/types').EffectRecipe;
 
 export interface UnitArtDefinition {
   id: string;

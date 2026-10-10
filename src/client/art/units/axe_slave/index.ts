@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.07,
     recoil: 0.5,
   },
-  attack: f('melee', 'shards', 'cone', 'none', 0.24, 0, 10, 8),
-  skill: f('wave', 'shards', 'cone', 'ribbon', 0.46, 0.1, 22, 12),
+  attack: f('斧刃重弧', 'cleave', 'slash', 'bone', 0.335, 9, 7, 0, 0.84, 0.7),
+  skill: f('回旋双斧痕', 'cleave', 'slash', 'crack', 0.785, 28, 18, 0, 0.84, 0.7),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

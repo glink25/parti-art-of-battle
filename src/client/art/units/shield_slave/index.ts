@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.05,
     recoil: 0.28,
   },
-  attack: f('melee', 'shards', 'box', 'blocks', 0.2, 0, 7, 1),
-  skill: f('wave', 'hex', 'octa', 'rings', 0.5, 0, 15, 2),
+  attack: f('木盾横击', 'cleave', 'slash', 'bone', 0.405, 15, 7, 0, 1.22, 1.06),
+  skill: f('傀儡盾篆', 'ward', 'sigil', 'bone', 0.855, 34, 18, 0, 1.22, 1.06),
   portrait: { yaw: -0.3, pitch: 0.02, scale: 1 },
 });

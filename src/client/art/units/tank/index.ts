@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.04,
     recoil: 0.62,
   },
-  attack: f('arc', 'shards', 'dodeca', 'blocks', 0.18, 1.8, 10, 7),
-  skill: f('arc', 'shockwave', 'dodeca', 'rings', 0.34, 2.2, 24, 9),
+  attack: f('抛石碎屑', 'shell', 'crack', 'smoke', 0.44, 9, 7, 1.5, 1.22, 0.7),
+  skill: f('架炮压力蒸汽', 'ascend', 'smoke', 'muzzle', 0.8, 28, 18, 0, 1.22, 0.7),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

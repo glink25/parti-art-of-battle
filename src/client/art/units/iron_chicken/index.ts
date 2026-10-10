@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.11,
     recoil: 0.52,
   },
-  attack: f('melee', 'shards', 'cone', 'needles', 0.16, 0, 9, 11),
-  skill: f('dash', 'burst', 'cone', 'sparks', 0.38, 0.25, 24, 16),
+  attack: f('钢喙穿刺', 'thrust', 'feather', 'muzzle', 0.335, 11, 11, 0, 1.79, 1.3),
+  skill: f('钢羽突刺翼痕', 'phase', 'feather', 'slash', 0.785, 30, 22, 0, 1.79, 1.3),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

@@ -1,14 +1,12 @@
-import { defineUnitArt as d, fx as f, palette as c, part as p } from '../../core/blueprint';
+import { parts, clips } from './sculpt';
+import { defineUnitArt as d, fx as f, palette as c } from '../../core/blueprint';
 export default d({
   id: 'athena',
   signature: 'crystal-orbit-psychic-fighter',
   palette: c(0xe06b78, 0x68437e, 0xff8de8),
-  parts: [
-    p('body', 'cylinder', 'primary', [0, 0.58, 0], [0.28, 0.48, 0.25]),
-    p('head', 'sphere', 'ivory', [0, 0.98, 0], [0.2, 0.2, 0.2]),
-    p('orbL', 'sphere', 'energy', [-0.38, 0.78, 0], [0.14, 0.14, 0.14], undefined, true),
-    p('orbR', 'octa', 'secondary', [0.38, 0.78, 0], [0.14, 0.14, 0.14], undefined, true),
-  ],
+  parts,
+  clips,
+  anchors: { attack: 'crystalR', skill: 'crystalL' },
   motion: {
     idle: 'hover',
     attack: 'punch',
@@ -17,7 +15,7 @@ export default d({
     amplitude: 0.13,
     recoil: 0.38,
   },
-  attack: f('orb', 'crystal', 'sphere', 'rings', 0.12, 0.35, 11, 9),
-  skill: f('wave', 'vortex', 'octa', 'rings', 0.62, 0.55, 36, 14),
+  attack: f('灵能晶矢', 'shot', 'crystal', 'soul', 0.405, 13, 9, 0.25, 1.03, 1.18),
+  skill: f('闪光水晶波', 'prism', 'crystal', 'sigil', 0.855, 32, 20, 0, 1.03, 1.18),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

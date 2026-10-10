@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.06,
     recoil: 0.34,
   },
-  attack: f('breath', 'flame', 'cone', 'embers', 0.2, 0.1, 14, 6),
-  skill: f('breath', 'flame', 'cone', 'embers', 0.5, 0.15, 32, 9),
+  attack: f('喷口火舌', 'breath', 'fire', 'smoke', 0.405, 9, 7, 0, 1.79, 0.7),
+  skill: f('持续火焰喷流', 'breath', 'fire', 'crack', 0.855, 28, 18, 0, 1.79, 0.7),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

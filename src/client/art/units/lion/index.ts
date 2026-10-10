@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.11,
     recoil: 0.35,
   },
-  attack: f('melee', 'shards', 'cone', 'none', 0.22, 0, 8, 3),
-  skill: f('wave', 'crystal', 'dodeca', 'rings', 0.6, 0.2, 22, 4),
+  attack: f('狮爪三痕', 'cut', 'slash', 'feather', 0.37, 13, 11, 0, 1.03, 0.94),
+  skill: f('石化怒吼岩纹', 'quake', 'crack', 'crystal', 0.8, 32, 22, 0, 1.03, 0.94),
   portrait: { yaw: 0.35, pitch: 0, scale: 0.92 },
 });

@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.04,
     recoil: 0.72,
   },
-  attack: f('beam', 'crystal', 'cylinder', 'ribbon', 0.1, 0.02, 16, 12),
-  skill: f('beam', 'shockwave', 'cylinder', 'sparks', 0.22, 0.02, 28, 15),
+  attack: f('消焰精确射击', 'shot', 'muzzle', 'crystal', 0.3, 9, 11, 0.25, 1.79, 0.94),
+  skill: f('超距狙杀穿甲线', 'shot', 'muzzle', 'lightning', 0.85, 28, 22, 0, 1.79, 0.94),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

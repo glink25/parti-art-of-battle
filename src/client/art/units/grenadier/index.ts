@@ -15,7 +15,7 @@ export default d({
     amplitude: 0.06,
     recoil: 0.48,
   },
-  attack: f('arc', 'burst', 'ico', 'embers', 0.13, 1.4, 9, 10),
-  skill: f('arc', 'vortex', 'ico', 'rings', 0.35, 1.8, 25, 12),
+  attack: f('榴弹弧线', 'shell', 'muzzle', 'smoke', 0.405, 11, 7, 1.5, 1.6, 1.06),
+  skill: f('灵能手雷爆燃', 'shell', 'fire', 'sigil', 0.855, 30, 18, 1.5, 1.6, 1.06),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });

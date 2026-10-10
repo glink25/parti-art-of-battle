@@ -1,14 +1,12 @@
-import { defineUnitArt as d, fx as f, palette as c, part as p } from '../../core/blueprint';
+import { parts, clips } from './sculpt';
+import { defineUnitArt as d, fx as f, palette as c } from '../../core/blueprint';
 export default d({
   id: 'ninja_panda',
   signature: 'scarf-twin-blade-panda',
   palette: c(0xe7dbcd, 0x242934, 0xeb64ff),
-  parts: [
-    p('body', 'sphere', 'ivory', [0, 0.56, 0], [0.38, 0.46, 0.34]),
-    p('hood', 'sphere', 'dark', [0, 0.94, 0], [0.3, 0.28, 0.3]),
-    p('bladeL', 'box', 'secondary', [-0.35, 0.62, -0.25], [0.08, 0.08, 0.6], [0, 0.3, 0.4]),
-    p('bladeR', 'box', 'energy', [0.35, 0.62, -0.25], [0.08, 0.08, 0.6], [0, -0.3, -0.4], true),
-  ],
+  parts,
+  clips,
+  anchors: { attack: 'bladeR', skill: 'bladeL' },
   motion: {
     idle: 'stalk',
     attack: 'slash',
@@ -17,7 +15,7 @@ export default d({
     amplitude: 0.08,
     recoil: 0.62,
   },
-  attack: f('melee', 'shards', 'box', 'ribbon', 0.2, 0, 11, 15),
-  skill: f('dash', 'vortex', 'box', 'ribbon', 0.5, 0.25, 32, 20),
+  attack: f('双刃交错', 'cut', 'slash', 'smoke', 0.3, 9, 9, 0, 1.6, 1.18),
+  skill: f('影分身交叉斩', 'shadow', 'slash', 'soul', 0.75, 28, 20, 0, 1.6, 1.18),
   portrait: { yaw: -0.35, pitch: 0.05, scale: 0.94 },
 });
